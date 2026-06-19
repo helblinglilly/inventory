@@ -1,36 +1,71 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Inventory
 
-## Getting Started
+Bare-bones local-first home inventory app built with Next.js, TypeScript, Tailwind, Turso, Drizzle, Better Auth, Vercel Blob, and IndexedDB.
 
-First, run the development server:
+## What is in place
+
+- Email/password authentication wired through Better Auth.
+- Turso-ready Drizzle schema for auth, rooms, places, and items.
+- Local-first client cache using Dexie/IndexedDB plus a mutation queue.
+- Room and place navigation, search, low-stock dashboard, and quick stock +/- actions.
+- Optional image upload route prepared for Vercel Blob and an external image proxy.
+- PWA manifest and service worker generation via `@ducanh2912/next-pwa`.
+
+## Environment
+
+Copy `.env.example` to `.env.local` and fill in the real values when ready:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Variables:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- `BETTER_AUTH_SECRET`: random secret for Better Auth.
+- `BETTER_AUTH_URL`: app base URL, for example `http://localhost:3000` locally.
+- `TURSO_DATABASE_URL`: Turso URL. Defaults to `file:local.db` for local fallback.
+- `TURSO_AUTH_TOKEN`: Turso auth token.
+- `BLOB_READ_WRITE_TOKEN`: Vercel Blob token for image uploads.
+- `IMAGE_PROXY_BASE_URL`: optional proxy endpoint. The app appends `?url=<blob-url>`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Local development
 
-## Learn More
+Install and run:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+npm install
+npm run db:migrate
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Then open <http://localhost:3000>.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Database commands
 
-## Deploy on Vercel
+```bash
+npm run auth:generate
+npm run db:generate
+npm run db:migrate
+npm run db:studio
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Notes:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `auth:generate` refreshes `src/db/auth-schema.ts` from the Better Auth config.
+- `db:generate` creates SQL migrations in `drizzle/`.
+- `db:migrate` applies those migrations to the configured Turso or local libsql database.
+
+## Deploying to Vercel
+
+1. Import the GitHub repo into Vercel.
+2. Add the environment variables above in the Vercel project.
+3. Provision Turso and set `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`.
+4. Create a Vercel Blob store and set `BLOB_READ_WRITE_TOKEN`.
+5. Run the Drizzle migrations against the production database before first sign-in.
+
+## Next steps
+
+- Wire real Vercel and Turso credentials.
+- Decide the final `img.helbling.uk` URL contract if it should be something other than `?url=`.
+- Add stronger conflict resolution for concurrent offline edits.
+- Add edit/delete flows, shopping views, and richer image handling.

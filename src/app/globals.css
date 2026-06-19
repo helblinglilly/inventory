@@ -1,26 +1,53 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-paper: #f5efe6;
+  --color-paper-strong: #ebe1d2;
+  --color-panel: rgba(255, 255, 255, 0.8);
+  --color-panel-muted: #f0e7db;
+  --color-highlight: #e9d4b0;
+  --color-forest: #2f5d50;
+  --color-forest-deep: #1d4339;
+  --color-clay: #c4492d;
+  --color-ink: #1f2623;
+  --color-ink-soft: #66706a;
+  --background: var(--color-paper);
+  --foreground: var(--color-ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(244, 201, 93, 0.3), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(47, 93, 80, 0.18), transparent 26%),
+    var(--color-paper);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  color: var(--color-ink);
+  font-family: var(--font-sans), sans-serif;
+  background: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
 }
