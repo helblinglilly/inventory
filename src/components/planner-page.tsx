@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Loader2,
-  Save,
-  ShoppingBasket,
-  Trash2,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Save, ShoppingBasket, Trash2 } from "lucide-react";
 import {
   applyMealPlanLocally,
   applyShoppingListEntryLocally,
@@ -26,7 +19,11 @@ import {
   toDateKey,
 } from "@/features/inventory/helpers";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
-import type { MealPlanRecord, RecipeRecord, ShoppingListEntryRecord } from "@/features/inventory/types";
+import type {
+  MealPlanRecord,
+  RecipeRecord,
+  ShoppingListEntryRecord,
+} from "@/features/inventory/types";
 import { cn, formatCurrencyFromPence, formatDateLabel } from "@/lib/utils";
 
 type PlannerPageProps = {
@@ -140,9 +137,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
       };
 
       await applyShoppingListEntryLocally(nextEntry);
-      await enqueueMutation(
-        buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp),
-      );
+      await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
     }
 
     setMessage(`Added ingredients for ${recipe.name} to the shopping list`);
@@ -158,12 +153,10 @@ export function PlannerPage({ userId }: PlannerPageProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
           Planner
         </p>
-        <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-          Meal calendar
-        </h2>
+        <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">Meal calendar</h2>
         <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-          Pick one meal per day, see the month at a glance, and kick planned ingredients onto
-          the shopping list when you need them.
+          Pick one meal per day, see the month at a glance, and kick planned ingredients onto the
+          shopping list when you need them.
         </p>
         {message ? (
           <p className="mt-4 rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
@@ -257,9 +250,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                     </>
                   ) : null}
                   {!hasMeal ? (
-                    <p className="mt-2 hidden text-sm text-[color:var(--color-ink-soft)] sm:block">
-                      Nothing planned
-                    </p>
+                    <p className="mt-2 hidden text-sm text-[color:var(--color-ink-soft)] sm:block"></p>
                   ) : null}
                   {hasMeal ? (
                     <p className="mt-2 text-[11px] font-medium text-[color:var(--color-ink-soft)] sm:hidden">
@@ -321,9 +312,7 @@ function PlannerSidebar({
         <h3 className="mt-1 text-xl font-semibold text-[color:var(--color-ink)]">
           {formatDateLabel(new Date(`${selectedDateKey}T12:00:00`))}
         </h3>
-        <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-          One planned meal for now.
-        </p>
+        <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">One planned meal for now.</p>
       </div>
 
       <div className="space-y-3">
@@ -349,9 +338,7 @@ function PlannerSidebar({
                     : "border-black/10 bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
                 ].join(" ")}
               >
-                <p className="text-sm font-semibold text-[color:var(--color-ink)]">
-                  {recipe.name}
-                </p>
+                <p className="text-sm font-semibold text-[color:var(--color-ink)]">{recipe.name}</p>
                 <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
                   {mealCost ?? "No meal cost yet"}
                 </p>
