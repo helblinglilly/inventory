@@ -99,6 +99,17 @@ export function RecipesPage({ userId }: RecipesPageProps) {
             {message}
           </p>
         ) : null}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {selectedRecipe ? (
+            <Link
+              href={`/app/recipe/${selectedRecipe.id}`}
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+            >
+              <ChefHat className="size-4" />
+              Open recipe page
+            </Link>
+          ) : null}
+        </div>
       </header>
 
       {recipes.length === 0 ? (

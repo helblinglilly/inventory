@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { startTransition } from "react";
 import {
-  ArrowRight,
   CheckSquare,
   ChefHat,
   ListRestart,
   Loader2,
   PackagePlus,
-  PackageSearch,
-  ShoppingBasket,
 } from "lucide-react";
 import {
   buildMutation,
@@ -276,7 +273,7 @@ export function InventoryWorkspace() {
             <NavButton href="/app/recipes" label="Recipes" />
             {todayRecipe ? (
               <Link
-                href={`/app/recipes/${todayRecipe.id}`}
+                href={`/app/recipe/${todayRecipe.id}`}
                 className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
               >
                 <ChefHat className="size-4" />
@@ -510,51 +507,6 @@ function NavButton({
     >
       {Icon ? <Icon className="size-4" /> : null}
       {label}
-    </Link>
-  );
-}
-
-function FlowCard({
-  eyebrow,
-  title,
-  description,
-  metric,
-  href,
-  cta,
-  icon: Icon,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  metric: string;
-  href: string;
-  cta: string;
-  icon: typeof ShoppingBasket;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(237,242,235,0.92))] p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.55)] transition hover:-translate-y-0.5 hover:border-[color:var(--color-forest)]/20"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-            {eyebrow}
-          </p>
-          <h3 className="mt-2 text-xl font-semibold text-[color:var(--color-ink)]">{title}</h3>
-        </div>
-        <div className="rounded-full bg-white p-3 text-[color:var(--color-forest)] shadow-sm">
-          <Icon className="size-5" />
-        </div>
-      </div>
-
-      <p className="mt-3 text-sm leading-6 text-[color:var(--color-ink-soft)]">{description}</p>
-      <p className="mt-4 text-sm font-medium text-[color:var(--color-ink)]">{metric}</p>
-
-      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--color-forest)]">
-        {cta}
-        <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
-      </div>
     </Link>
   );
 }
