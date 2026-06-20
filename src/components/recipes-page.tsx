@@ -10,6 +10,7 @@ import {
   Trash2,
 } from "lucide-react";
 import {
+  applyItemLocally,
   applyRecipeIngredientLocally,
   applyRecipeLocally,
   applyShoppingListEntryLocally,
@@ -26,8 +27,10 @@ import {
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import type {
   ItemRecord,
+  PlaceRecord,
   RecipeIngredientRecord,
   RecipeRecord,
+  RoomRecord,
   ShoppingListEntryRecord,
 } from "@/features/inventory/types";
 import { formatCurrencyFromPence } from "@/lib/utils";
@@ -39,6 +42,8 @@ type RecipesPageProps = {
 export function RecipesPage({ userId }: RecipesPageProps) {
   const {
     items,
+    rooms,
+    places,
     recipes,
     recipeIngredients,
     shoppingLists,
@@ -49,6 +54,9 @@ export function RecipesPage({ userId }: RecipesPageProps) {
   const [selectedRecipeId, setSelectedRecipeId] = useState<string>("");
   const [newRecipeName, setNewRecipeName] = useState("");
   const [ingredientSearch, setIngredientSearch] = useState("");
+  const [quickAddItemName, setQuickAddItemName] = useState("");
+  const [quickAddPlaceId, setQuickAddPlaceId] = useState("");
+  const [quickAddIsStaple, setQuickAddIsStaple] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   if (isBootstrapping) {
@@ -63,6 +71,9 @@ export function RecipesPage({ userId }: RecipesPageProps) {
     (ingredient) => ingredient.recipeId === effectiveRecipeId,
   );
   const activeShoppingList = getActiveShoppingList(shoppingLists);
+  const effectiveQuickAddPlaceId = places.some((place) => place.id === quickAddPlaceId)
+    ? quickAddPlaceId
+    : places[0]?.id ?? "";
   const filteredItems = items.filter((item) => {
     if (selectedIngredients.some((ingredient) => ingredient.itemId === item.id)) {
       return false;
@@ -78,6 +89,11 @@ export function RecipesPage({ userId }: RecipesPageProps) {
       (item.notes ?? "").toLowerCase().includes(query)
     );
   });
+
+  const placeOptions = places.map((place) => ({
+    id: place.id,
+    label: getPlaceOptionLabel(place, rooms),
+  }));
 
   async function createRecipe() {
     if (!newRecipeName.trim()) {
@@ -124,6 +140,42 @@ export function RecipesPage({ userId }: RecipesPageProps) {
     }
   }
 
+  async function linkItemToRecipe(
+    item: ItemRecord,
+    recipe: RecipeRecord,
+    options?: { message?: string; syncAfter?: boolean },
+  ) {
+    const existingIngredient = recipeIngredients.find(
+      (ingredient) => ingredient.recipeId === recipe.id && ingredient.itemId === item.id,
+    );
+
+    if (existingIngredient) {
+      setMessage(`${item.name} is already linked to ${recipe.name}`);
+      return;
+    }
+
+    const timestamp = getTimestamp();
+    const ingredient: RecipeIngredientRecord = {
+      id: getId(),
+      recipeId: recipe.id,
+      userId,
+      itemId: item.id,
+      quantity: 1,
+      unitLabel: null,
+      includeInCost: !item.isStaple,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    await applyRecipeIngredientLocally(ingredient);
+    await enqueueMutation(buildMutation("recipe-ingredient", "upsert", ingredient, timestamp));
+    setMessage(options?.message ?? `${item.name} added to ${recipe.name}`);
+
+    if (options?.syncAfter !== false && navigator.onLine) {
+      await syncNow();
+    }
+  }
+
   async function addIngredient(itemId: string) {
     if (!selectedRecipe) {
       return;
@@ -134,7 +186,47 @@ export function RecipesPage({ userId }: RecipesPageProps) {
       return;
     }
 
+    await linkItemToRecipe(item, selectedRecipe);
+  }
+
+  async function createGlobalItemAndLink() {
+    if (!selectedRecipe || !quickAddItemName.trim()) {
+      return;
+    }
+
+    if (!effectiveQuickAddPlaceId) {
+      setMessage("Add a place first so new items have somewhere to live");
+      return;
+    }
+
+    const normalizedName = quickAddItemName.trim().toLowerCase();
+    const existingItem = items.find((item) => item.name.trim().toLowerCase() === normalizedName);
+
+    if (existingItem) {
+      await linkItemToRecipe(existingItem, selectedRecipe, {
+        message: `${existingItem.name} linked to ${selectedRecipe.name}`,
+      });
+      setQuickAddItemName("");
+      return;
+    }
+
     const timestamp = getTimestamp();
+    const item: ItemRecord = {
+      id: getId(),
+      placeId: effectiveQuickAddPlaceId,
+      userId,
+      name: quickAddItemName.trim(),
+      notes: undefined,
+      imageUrl: null,
+      imageProxyUrl: null,
+      pricePaidPence: null,
+      isStaple: quickAddIsStaple,
+      trackPriceHistory: !quickAddIsStaple,
+      desiredStock: 1,
+      actualStock: 0,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
     const ingredient: RecipeIngredientRecord = {
       id: getId(),
       recipeId: selectedRecipe.id,
@@ -147,9 +239,14 @@ export function RecipesPage({ userId }: RecipesPageProps) {
       updatedAt: timestamp,
     };
 
+    await applyItemLocally(item);
+    await enqueueMutation(buildMutation("item", "upsert", item, timestamp));
     await applyRecipeIngredientLocally(ingredient);
     await enqueueMutation(buildMutation("recipe-ingredient", "upsert", ingredient, timestamp));
-    setMessage(`${item.name} added to ${selectedRecipe.name}`);
+
+    setQuickAddItemName("");
+    setQuickAddIsStaple(false);
+    setMessage(`${item.name} created and linked to ${selectedRecipe.name}`);
 
     if (navigator.onLine) {
       await syncNow();
@@ -255,7 +352,7 @@ export function RecipesPage({ userId }: RecipesPageProps) {
           Recipe catalog
         </h2>
         <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-          Build dinners from your tracked items, keep staples optional, and push ingredients onto
+          Build meals from your tracked items, keep staples optional, and push ingredients onto
           the shopping list when you need them.
         </p>
         {message ? (
@@ -336,7 +433,7 @@ export function RecipesPage({ userId }: RecipesPageProps) {
         <div className="space-y-4">
           {!selectedRecipe ? (
             <section className="rounded-[2rem] border border-dashed border-black/10 bg-white/75 px-6 py-10 text-center text-sm text-[color:var(--color-ink-soft)]">
-              Pick a recipe or create one to start planning dinners.
+              Pick a recipe or create one to start planning meals.
             </section>
           ) : (
             <>
@@ -460,16 +557,68 @@ export function RecipesPage({ userId }: RecipesPageProps) {
                 </div>
 
                 <aside className="space-y-4 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-                      Add ingredients
-                    </p>
-                    <input
-                      value={ingredientSearch}
-                      onChange={(event) => setIngredientSearch(event.target.value)}
-                      placeholder="Search items"
-                      className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
-                    />
+                  <div className="space-y-4">
+                    <div className="rounded-[1.5rem] border border-black/10 bg-white p-4">
+                      <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+                        Quick add
+                      </p>
+                      <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+                        Create a global item here and link it to this recipe straight away.
+                      </p>
+
+                      <div className="mt-4 space-y-3">
+                        <input
+                          value={quickAddItemName}
+                          onChange={(event) => setQuickAddItemName(event.target.value)}
+                          placeholder="Add a new ingredient"
+                          className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                        />
+                        <select
+                          value={effectiveQuickAddPlaceId}
+                          onChange={(event) => setQuickAddPlaceId(event.target.value)}
+                          className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                        >
+                          {placeOptions.length === 0 ? (
+                            <option value="">No places available</option>
+                          ) : (
+                            placeOptions.map((place) => (
+                              <option key={place.id} value={place.id}>
+                                {place.label}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        <label className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink)]">
+                          <input
+                            type="checkbox"
+                            checked={quickAddIsStaple}
+                            onChange={(event) => setQuickAddIsStaple(event.target.checked)}
+                            className="size-4 rounded border-black/20"
+                          />
+                          Make this a staple item
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => void createGlobalItemAndLink()}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
+                        >
+                          <Plus className="size-4" />
+                          Create and link
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+                        Add ingredients
+                      </p>
+                      <input
+                        value={ingredientSearch}
+                        onChange={(event) => setIngredientSearch(event.target.value)}
+                        placeholder="Search items"
+                        className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                      />
+                    </div>
                   </div>
 
                   <div className="space-y-3">
@@ -503,6 +652,11 @@ export function RecipesPage({ userId }: RecipesPageProps) {
       </div>
     </section>
   );
+}
+
+function getPlaceOptionLabel(place: PlaceRecord, rooms: RoomRecord[]) {
+  const room = rooms.find((entry) => entry.id === place.roomId);
+  return room ? `${room.name} / ${place.name}` : place.name;
 }
 
 function RecipeEditor({

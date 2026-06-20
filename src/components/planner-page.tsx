@@ -75,7 +75,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
 
     await applyMealPlanLocally(nextPlan);
     await enqueueMutation(buildMutation("meal-plan", "upsert", nextPlan, timestamp));
-    setMessage(recipeId ? "Dinner plan saved" : "Dinner note saved");
+    setMessage(recipeId ? "Meal saved" : "Meal note saved");
 
     if (navigator.onLine) {
       await syncNow();
@@ -90,7 +90,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
     const timestamp = getTimestamp();
     await deleteMealPlanLocally(selectedPlan.id);
     await enqueueMutation(buildMutation("meal-plan", "delete", { id: selectedPlan.id }, timestamp));
-    setMessage("Dinner plan cleared");
+    setMessage("Meal cleared");
 
     if (navigator.onLine) {
       await syncNow();
@@ -159,10 +159,10 @@ export function PlannerPage({ userId }: PlannerPageProps) {
           Planner
         </p>
         <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-          Dinner calendar
+          Meal calendar
         </h2>
         <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-          Pick one dinner per day, see the month at a glance, and kick planned ingredients onto
+          Pick one meal per day, see the month at a glance, and kick planned ingredients onto
           the shopping list when you need them.
         </p>
         {message ? (
@@ -240,7 +240,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                     {date.getDate()}
                   </p>
                   <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[color:var(--color-ink-soft)]">
-                    Dinner
+                    Meal
                   </p>
                   <p className="mt-2 line-clamp-2 text-sm text-[color:var(--color-ink)]">
                     {recipe?.name ?? "Nothing planned"}
@@ -301,7 +301,7 @@ function PlannerSidebar({
           {formatDateLabel(new Date(`${selectedDateKey}T12:00:00`))}
         </h3>
         <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-          Dinner only for now.
+          One planned meal for now.
         </p>
       </div>
 
@@ -348,7 +348,7 @@ function PlannerSidebar({
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           rows={4}
-          placeholder="Anything special for this dinner?"
+          placeholder="Anything special for this meal?"
           className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
         />
       </label>
