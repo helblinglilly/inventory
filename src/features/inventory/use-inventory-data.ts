@@ -78,6 +78,24 @@ export function useInventoryData() {
     };
   });
 
+  useEffect(() => {
+    if (isBootstrapping || isSyncing || !navigator.onLine) {
+      return;
+    }
+
+    if ((pendingMutations?.length ?? 0) === 0) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void syncNow();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isBootstrapping, isSyncing, pendingMutations?.length]);
+
   return {
     rooms: rooms ?? [],
     places: places ?? [],

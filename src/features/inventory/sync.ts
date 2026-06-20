@@ -17,6 +17,34 @@ import {
   type SyncMutation,
 } from "@/features/inventory/types";
 
+export async function clearLocalInventoryData() {
+  await offlineDb.transaction(
+    "rw",
+    [
+      offlineDb.rooms,
+      offlineDb.places,
+      offlineDb.items,
+      offlineDb.shoppingLists,
+      offlineDb.shoppingListEntries,
+      offlineDb.recipes,
+      offlineDb.recipeIngredients,
+      offlineDb.mealPlans,
+      offlineDb.meta,
+    ],
+    async () => {
+      await offlineDb.rooms.clear();
+      await offlineDb.places.clear();
+      await offlineDb.items.clear();
+      await offlineDb.shoppingLists.clear();
+      await offlineDb.shoppingListEntries.clear();
+      await offlineDb.recipes.clear();
+      await offlineDb.recipeIngredients.clear();
+      await offlineDb.mealPlans.clear();
+      await offlineDb.meta.clear();
+    },
+  );
+}
+
 async function replayPendingMutations(excludedMutationIds: string[] = []) {
   const excludedIds = new Set(excludedMutationIds);
   const pendingMutations = await offlineDb.mutations.orderBy("queuedAt").toArray();
@@ -188,6 +216,11 @@ export async function bootstrapFromServer() {
     cache: "no-store",
   });
 
+  if (response.status === 401) {
+    await clearLocalInventoryData();
+    throw new Error("Unauthorized");
+  }
+
   if (!response.ok) {
     throw new Error("Unable to load inventory bootstrap");
   }
@@ -287,6 +320,11 @@ export async function flushMutations() {
       },
       body: JSON.stringify({ mutations }),
     });
+
+    if (response.status === 401) {
+      await clearLocalInventoryData();
+      throw new Error("Unauthorized");
+    }
 
     if (!response.ok) {
       throw new Error("Unable to sync inventory changes");

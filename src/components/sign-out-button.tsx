@@ -2,6 +2,7 @@
 
 import { Loader2, LogOut } from "lucide-react";
 import { useState } from "react";
+import { clearLocalInventoryData } from "@/features/inventory/sync";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
@@ -12,6 +13,7 @@ export function SignOutButton() {
 
     try {
       await authClient.signOut();
+      await clearLocalInventoryData();
       window.location.assign("/");
     } finally {
       setIsPending(false);
