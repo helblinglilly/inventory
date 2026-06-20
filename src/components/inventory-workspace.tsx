@@ -225,6 +225,8 @@ export function InventoryWorkspace({
       actualStock: Number(itemDraft.actualStock),
       imageUrl: uploadPayload.imageUrl,
       imageProxyUrl: uploadPayload.imageProxyUrl,
+      isStaple: false,
+      trackPriceHistory: false,
       createdAt: timestamp,
       updatedAt: timestamp,
     };

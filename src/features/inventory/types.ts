@@ -116,11 +116,11 @@ export const bootstrapResponseSchema = z.object({
   rooms: z.array(roomSchema),
   places: z.array(placeSchema),
   items: z.array(itemSchema),
-  shoppingLists: z.array(shoppingListSchema),
-  shoppingListEntries: z.array(shoppingListEntrySchema),
-  recipes: z.array(recipeSchema),
-  recipeIngredients: z.array(recipeIngredientSchema),
-  mealPlans: z.array(mealPlanSchema),
+  shoppingLists: z.array(shoppingListSchema).default([]),
+  shoppingListEntries: z.array(shoppingListEntrySchema).default([]),
+  recipes: z.array(recipeSchema).default([]),
+  recipeIngredients: z.array(recipeIngredientSchema).default([]),
+  mealPlans: z.array(mealPlanSchema).default([]),
   serverTime: z.number(),
 });
 

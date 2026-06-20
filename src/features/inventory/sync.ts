@@ -14,18 +14,35 @@ import {
 export async function hydrateLocalSnapshot(snapshot: BootstrapResponse) {
   await offlineDb.transaction(
     "rw",
-    offlineDb.rooms,
-    offlineDb.places,
-    offlineDb.items,
-    offlineDb.meta,
+    [
+      offlineDb.rooms,
+      offlineDb.places,
+      offlineDb.items,
+      offlineDb.shoppingLists,
+      offlineDb.shoppingListEntries,
+      offlineDb.recipes,
+      offlineDb.recipeIngredients,
+      offlineDb.mealPlans,
+      offlineDb.meta,
+    ],
     async () => {
       await offlineDb.rooms.clear();
       await offlineDb.places.clear();
       await offlineDb.items.clear();
+      await offlineDb.shoppingLists.clear();
+      await offlineDb.shoppingListEntries.clear();
+      await offlineDb.recipes.clear();
+      await offlineDb.recipeIngredients.clear();
+      await offlineDb.mealPlans.clear();
 
       await offlineDb.rooms.bulkPut(snapshot.rooms);
       await offlineDb.places.bulkPut(snapshot.places);
       await offlineDb.items.bulkPut(snapshot.items);
+      await offlineDb.shoppingLists.bulkPut(snapshot.shoppingLists);
+      await offlineDb.shoppingListEntries.bulkPut(snapshot.shoppingListEntries);
+      await offlineDb.recipes.bulkPut(snapshot.recipes);
+      await offlineDb.recipeIngredients.bulkPut(snapshot.recipeIngredients);
+      await offlineDb.mealPlans.bulkPut(snapshot.mealPlans);
       await offlineDb.meta.put({
         key: "lastBootstrapAt",
         value: String(snapshot.serverTime),
@@ -85,12 +102,6 @@ export async function flushMutations() {
 
   const payload = bootstrapResponseSchema.parse(await response.json());
 
-  await offlineDb.transaction(
-    "rw",
-    offlineDb.mutations,
-    async () => {
-      await hydrateLocalSnapshot(payload);
-      await offlineDb.mutations.bulkDelete(mutations.map((mutation) => mutation.id));
-    },
-  );
+  await hydrateLocalSnapshot(payload);
+  await offlineDb.mutations.bulkDelete(mutations.map((mutation) => mutation.id));
 }
