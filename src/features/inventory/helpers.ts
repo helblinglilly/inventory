@@ -10,6 +10,8 @@ import type {
   SyncMutation,
 } from "@/features/inventory/types";
 
+export const ROOM_LEVEL_PLACE_NAME = "Room-level items";
+
 export function buildMutation(
   entity: SyncMutation["entity"],
   operation: SyncMutation["operation"],
@@ -50,6 +52,10 @@ export function getLocationLabel(
   const room = place ? getRoomById(rooms, place.roomId) : null;
 
   if (room && place) {
+    if (place.name === ROOM_LEVEL_PLACE_NAME) {
+      return room.name;
+    }
+
     return `${room.name} / ${place.name}`;
   }
 
