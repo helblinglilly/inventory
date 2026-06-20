@@ -256,14 +256,6 @@ export function InventoryWorkspace() {
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
-        <div className="mt-5 flex flex-wrap gap-3">
-          <NavButton href="/app/add" label="Track new item" icon={PackagePlus} />
-          <NavButton href="/app/recipes" label="Recipes" />
-          <NavButton href="/app/rooms" label="Rooms" />
-        </div>
-      </section>
-
-      <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
@@ -274,12 +266,14 @@ export function InventoryWorkspace() {
             </h2>
             <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
               {todayRecipe
-                ? (todayPlan?.notes ?? "Open the planner if you want to swap or add notes.")
-                : "Plan something for today from the recipe page or planner."}
+                ? (todayPlan?.notes ?? "")
+                : "Plan something for today from the meal calendar"}
             </p>
           </div>
+
           <div className="flex flex-wrap gap-3">
             <NavButton href="/app/planner" label="Meal Calendar" />
+            <NavButton href="/app/recipes" label="Recipes" />
             {todayRecipe ? (
               <Link
                 href={`/app/recipes/${todayRecipe.id}`}
@@ -290,6 +284,13 @@ export function InventoryWorkspace() {
               </Link>
             ) : null}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
+        <div className="flex flex-wrap gap-3">
+          <NavButton href="/app/add" label="Track new item" icon={PackagePlus} />
+          <NavButton href="/app/rooms" label="Rooms" />
         </div>
       </section>
 
@@ -345,25 +346,7 @@ function ShoppingSection({
   onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(237,242,235,0.92))] p-4">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-            Current list
-          </p>
-          <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-            Manual items, recipe ingredients, and low-stock top-ups grouped by place.
-          </p>
-        </div>
-        <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
-          {groupedEntries.reduce(
-            (count, group) => count + group.entries.filter((entry) => !entry.checkedAt).length,
-            0,
-          )}{" "}
-          open
-        </div>
-      </div>
-
+    <>
       {derivedCount > 0 ? (
         <div className="mt-4 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
           {derivedCount} low-stock item{derivedCount === 1 ? "" : "s"} are already shown here even
@@ -441,7 +424,7 @@ function ShoppingSection({
                           ) : null}
                         </div>
                         <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-                          {entry.quantity} {entry.unitLabel ?? "item"}
+                          {entry.quantity} {entry.unitLabel ?? "x"}
                         </p>
                       </div>
                       <span
@@ -468,7 +451,7 @@ function ShoppingSection({
           ))
         )}
       </div>
-    </div>
+    </>
   );
 }
 
