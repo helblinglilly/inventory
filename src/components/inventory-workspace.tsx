@@ -61,11 +61,6 @@ export function InventoryWorkspace() {
     selectableShoppingRooms.some((room) => room.id === selectedShoppingRoomId)
       ? selectedShoppingRoomId
       : selectableShoppingRooms[0]?.id ?? rooms[0]?.id ?? "";
-  const futurePlannedRecipeIds = new Set(
-    mealPlans.flatMap((mealPlan) =>
-      mealPlan.recipeId && mealPlan.plannedFor > todayDateKey ? [mealPlan.recipeId] : [],
-    ),
-  );
   const activeEntryItemIds = new Set(
     activeEntries.flatMap((entry) => (entry.itemId ? [entry.itemId] : [])),
   );
@@ -91,10 +86,9 @@ export function InventoryWorkspace() {
       const item = entry.itemId
         ? (items.find((candidate) => candidate.id === entry.itemId) ?? null)
         : null;
-      const recipe =
-        entry.recipeId && futurePlannedRecipeIds.has(entry.recipeId)
-          ? (recipes.find((candidate) => candidate.id === entry.recipeId) ?? null)
-          : null;
+      const recipe = entry.recipeId
+        ? (recipes.find((candidate) => candidate.id === entry.recipeId) ?? null)
+        : null;
 
       return {
         id: entry.id,
