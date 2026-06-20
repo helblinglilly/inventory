@@ -11,6 +11,8 @@ import type {
 } from "@/features/inventory/types";
 
 export const ROOM_LEVEL_PLACE_NAME = "Room-level items";
+export const UNCATEGORIZED_ROOM_NAME = "Uncategorised";
+export const UNCATEGORIZED_PLACE_NAME = "Needs assigning";
 
 export function buildMutation(
   entity: SyncMutation["entity"],
@@ -54,6 +56,10 @@ export function getLocationLabel(
   if (room && place) {
     if (place.name === ROOM_LEVEL_PLACE_NAME) {
       return room.name;
+    }
+
+    if (room.name === UNCATEGORIZED_ROOM_NAME && place.name === UNCATEGORIZED_PLACE_NAME) {
+      return UNCATEGORIZED_ROOM_NAME;
     }
 
     return `${room.name} / ${place.name}`;

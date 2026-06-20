@@ -10,6 +10,8 @@ import {
   getId,
   getLocationLabel,
   getTimestamp,
+  UNCATEGORIZED_PLACE_NAME,
+  UNCATEGORIZED_ROOM_NAME,
 } from "@/features/inventory/helpers";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import { cn, formatCurrencyFromPence, formatRelativeStock } from "@/lib/utils";
@@ -39,8 +41,12 @@ export function ItemsPage() {
       (item.notes ?? "").toLowerCase().includes(deferredSearch)
     );
   });
-  const lowStockItems = filteredItems.filter((item) => item.actualStock < item.desiredStock);
-  const healthyItems = filteredItems.filter((item) => item.actualStock >= item.desiredStock);
+  const uncategorizedItems = filteredItems.filter((item) => isUncategorizedItem(item, places, rooms));
+  const categorizedItems = filteredItems.filter(
+    (item) => !isUncategorizedItem(item, places, rooms),
+  );
+  const lowStockItems = categorizedItems.filter((item) => item.actualStock < item.desiredStock);
+  const healthyItems = categorizedItems.filter((item) => item.actualStock >= item.desiredStock);
 
   if (isBootstrapping) {
     return <Loading label="Loading items..." />;
@@ -121,6 +127,39 @@ export function ItemsPage() {
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="space-y-3 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] lg:col-span-2">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+                Needs assigning
+              </p>
+              <h3 className="mt-1 text-xl font-semibold text-[color:var(--color-ink)]">
+                Uncategorised items
+              </h3>
+            </div>
+            <div className="rounded-full bg-[color:var(--color-panel-muted)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
+              {uncategorizedItems.length}
+            </div>
+          </div>
+
+          {uncategorizedItems.length === 0 ? (
+            <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
+              No uncategorised items right now.
+            </div>
+          ) : (
+            uncategorizedItems.map((item) => (
+              <ItemCard
+                key={item.id}
+                item={item}
+                rooms={rooms}
+                places={places}
+                onAddToShoppingList={addItemToShoppingList}
+                emphasize
+              />
+            ))
+          )}
+        </div>
+
         <div className="space-y-3 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -194,17 +233,21 @@ function ItemCard({
   rooms,
   places,
   onAddToShoppingList,
+  emphasize = false,
 }: {
   item: (ReturnType<typeof useInventoryData>["items"])[number];
   rooms: ReturnType<typeof useInventoryData>["rooms"];
   places: ReturnType<typeof useInventoryData>["places"];
   onAddToShoppingList: (itemId: string) => Promise<void>;
+  emphasize?: boolean;
 }) {
   return (
     <article
       className={cn(
         "rounded-[1.5rem] border p-4 transition",
-        item.actualStock <= 0
+        emphasize
+          ? "border-sky-200 bg-sky-50"
+          : item.actualStock <= 0
           ? "border-red-200 bg-red-50"
           : item.actualStock < item.desiredStock
             ? "border-amber-200 bg-amber-50"
@@ -231,6 +274,11 @@ function ItemCard({
                   : ""}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
+                {emphasize ? (
+                  <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                    Needs assigning
+                  </span>
+                ) : null}
                 {item.isStaple ? (
                   <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
                     Staple
@@ -269,6 +317,19 @@ function ItemCard({
         </div>
       </div>
     </article>
+  );
+}
+
+function isUncategorizedItem(
+  item: ReturnType<typeof useInventoryData>["items"][number],
+  places: ReturnType<typeof useInventoryData>["places"],
+  rooms: ReturnType<typeof useInventoryData>["rooms"],
+) {
+  const place = places.find((entry) => entry.id === item.placeId);
+  const room = place ? rooms.find((entry) => entry.id === place.roomId) : null;
+
+  return (
+    place?.name === UNCATEGORIZED_PLACE_NAME && room?.name === UNCATEGORIZED_ROOM_NAME
   );
 }
 

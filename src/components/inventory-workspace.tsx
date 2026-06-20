@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { startTransition } from "react";
+import { startTransition, useState } from "react";
 import { CheckSquare, ChefHat, ListRestart, Loader2, Minus, PackagePlus, Plus } from "lucide-react";
 import {
   buildMutation,
@@ -11,15 +11,20 @@ import {
   getLocationLabel,
   getShoppingListCarryOverEntries,
   getTimestamp,
+  UNCATEGORIZED_PLACE_NAME,
+  UNCATEGORIZED_ROOM_NAME,
   sortLowStockItems,
   toDateKey,
 } from "@/features/inventory/helpers";
 import {
   applyItemLocally,
+  applyPlaceLocally,
+  applyRoomLocally,
   applyShoppingListEntryLocally,
   applyShoppingListLocally,
   enqueueMutation,
 } from "@/features/inventory/sync";
+import type { PlaceRecord, RoomRecord, ShoppingListEntryRecord } from "@/features/inventory/types";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +40,9 @@ export function InventoryWorkspace() {
     isBootstrapping,
     syncNow,
   } = useInventoryData();
+  const [quickItemName, setQuickItemName] = useState("");
+  const [quickItemQuantity, setQuickItemQuantity] = useState("1");
+  const [message, setMessage] = useState<string | null>(null);
 
   const activeShoppingList = getActiveShoppingList(shoppingLists);
   const activeEntries = shoppingListEntries.filter(
@@ -101,6 +109,20 @@ export function InventoryWorkspace() {
   ];
   const itemEntryCounts = getItemEntryCounts(combinedEntries);
   const groupedEntries = groupEntriesByPlace(combinedEntries);
+
+  function getUncategorizedPlaceSnapshot() {
+    const existingRoom =
+      rooms.find((room) => room.name === UNCATEGORIZED_ROOM_NAME) ?? null;
+    const existingPlace =
+      places.find(
+        (place) =>
+          place.name === UNCATEGORIZED_PLACE_NAME &&
+          existingRoom &&
+          place.roomId === existingRoom.id,
+      ) ?? null;
+
+    return { existingRoom, existingPlace };
+  }
 
   async function adjustItemStock(
     item: NonNullable<ShoppingViewEntry["item"]>,
@@ -268,6 +290,118 @@ export function InventoryWorkspace() {
     }
   }
 
+  async function quickAddShoppingItem() {
+    if (!activeShoppingList) {
+      setMessage("No active shopping list found");
+      return;
+    }
+
+    const name = quickItemName.trim();
+    const quantity = Math.max(Number(quickItemQuantity) || 1, 1);
+
+    if (!name) {
+      return;
+    }
+
+    const normalizedName = name.toLowerCase();
+    const existingItem =
+      items.find((item) => item.name.trim().toLowerCase() === normalizedName) ?? null;
+    const timestamp = getTimestamp();
+    let item = existingItem;
+
+    if (!item) {
+      const { existingRoom, existingPlace } = getUncategorizedPlaceSnapshot();
+      const room: RoomRecord =
+        existingRoom ?? {
+          id: getId(),
+          userId: activeShoppingList.userId,
+          name: UNCATEGORIZED_ROOM_NAME,
+          sortOrder: rooms.length,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+      const place: PlaceRecord =
+        existingPlace ?? {
+          id: getId(),
+          roomId: room.id,
+          userId: activeShoppingList.userId,
+          name: UNCATEGORIZED_PLACE_NAME,
+          sortOrder: places.filter((entry) => entry.roomId === room.id).length,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+      if (!existingRoom) {
+        await applyRoomLocally(room);
+        await enqueueMutation(buildMutation("room", "upsert", room, timestamp));
+      }
+
+      if (!existingPlace) {
+        await applyPlaceLocally(place);
+        await enqueueMutation(buildMutation("place", "upsert", place, timestamp));
+      }
+
+      item = {
+        id: getId(),
+        placeId: place.id,
+        userId: activeShoppingList.userId,
+        name,
+        notes: null,
+        imageUrl: null,
+        imageProxyUrl: null,
+        pricePaidPence: null,
+        isStaple: false,
+        trackPriceHistory: true,
+        desiredStock: quantity,
+        actualStock: 0,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      await applyItemLocally(item);
+      await enqueueMutation(buildMutation("item", "upsert", item, timestamp));
+    }
+
+    const existingEntry = activeEntries.find(
+      (entry) =>
+        !entry.checkedAt &&
+        ((item && entry.itemId === item.id) ||
+          (!item && entry.label.trim().toLowerCase() === normalizedName)),
+    );
+
+    const nextEntry: ShoppingListEntryRecord = existingEntry
+      ? {
+          ...existingEntry,
+          quantity: existingEntry.quantity + quantity,
+          updatedAt: timestamp,
+        }
+      : {
+          id: getId(),
+          listId: activeShoppingList.id,
+          userId: activeShoppingList.userId,
+          itemId: item?.id ?? null,
+          recipeId: null,
+          label: name,
+          sourceType: "manual",
+          quantity,
+          unitLabel: null,
+          checkedAt: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+
+    await applyShoppingListEntryLocally(nextEntry);
+    await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
+
+    setQuickItemName("");
+    setQuickItemQuantity("1");
+    setMessage(`${name} added to the shopping list`);
+
+    if (navigator.onLine) {
+      await syncNow();
+    }
+  }
+
   if (isBootstrapping) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
@@ -328,6 +462,35 @@ export function InventoryWorkspace() {
               Shopping List
             </h2>
           </div>
+        </div>
+        {message ? (
+          <p className="mt-4 rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
+            {message}
+          </p>
+        ) : null}
+
+        <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem_auto]">
+          <input
+            value={quickItemName}
+            onChange={(event) => setQuickItemName(event.target.value)}
+            placeholder="Quick add a shopping item"
+            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+          />
+          <input
+            type="number"
+            min={1}
+            value={quickItemQuantity}
+            onChange={(event) => setQuickItemQuantity(event.target.value)}
+            className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+          />
+          <button
+            type="button"
+            onClick={() => startTransition(() => void quickAddShoppingItem())}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
+          >
+            <Plus className="size-4" />
+            Add item
+          </button>
         </div>
 
         <div className="mt-5">
