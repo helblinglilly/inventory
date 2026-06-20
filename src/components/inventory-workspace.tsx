@@ -48,9 +48,15 @@ export function InventoryWorkspace() {
   const activeEntries = shoppingListEntries.filter(
     (entry) => entry.listId === activeShoppingList?.id,
   );
+  const todayDateKey = toDateKey(new Date());
   const lowStockItems = sortLowStockItems(items.filter((item) => item.actualStock < item.desiredStock));
-  const todayPlan = getDinnerPlanForDate(mealPlans, toDateKey(new Date()));
+  const todayPlan = getDinnerPlanForDate(mealPlans, todayDateKey);
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
+  const futurePlannedRecipeIds = new Set(
+    mealPlans.flatMap((mealPlan) =>
+      mealPlan.recipeId && mealPlan.plannedFor > todayDateKey ? [mealPlan.recipeId] : [],
+    ),
+  );
   const activeEntryItemIds = new Set(
     activeEntries.flatMap((entry) => (entry.itemId ? [entry.itemId] : [])),
   );
@@ -61,6 +67,7 @@ export function InventoryWorkspace() {
       entryId: null,
       item,
       itemId: item.id,
+      recipeId: null,
       label: item.name,
       sourceType: "low-stock",
       quantity: Math.max(item.desiredStock - item.actualStock, 1),
@@ -68,16 +75,22 @@ export function InventoryWorkspace() {
       checkedAt: null,
       isDerived: true,
       placeLabel: getLocationLabel(item, places, rooms),
+      plannedRecipeName: null,
     }));
   const combinedEntries: ShoppingViewEntry[] = [
     ...activeEntries.map((entry) => {
       const item = entry.itemId ? items.find((candidate) => candidate.id === entry.itemId) ?? null : null;
+      const recipe =
+        entry.recipeId && futurePlannedRecipeIds.has(entry.recipeId)
+          ? recipes.find((candidate) => candidate.id === entry.recipeId) ?? null
+          : null;
 
       return {
         id: entry.id,
         entryId: entry.id,
         item,
         itemId: entry.itemId ?? null,
+        recipeId: entry.recipeId ?? null,
         label: entry.label,
         sourceType: entry.sourceType,
         quantity: entry.quantity,
@@ -85,6 +98,7 @@ export function InventoryWorkspace() {
         checkedAt: entry.checkedAt ?? null,
         isDerived: false,
         placeLabel: item ? getLocationLabel(item, places, rooms) : "Unassigned",
+        plannedRecipeName: recipe?.name ?? null,
       };
     }),
     ...derivedLowStockEntries,
@@ -472,12 +486,14 @@ function ShoppingSection({
                           </h3>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                            {getSourceLabel(entry)}
-                          </span>
-                          {entry.isDerived ? (
+                          {entry.sourceType === "manual" ? (
                             <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                              Auto from stock
+                              Manual item
+                            </span>
+                          ) : null}
+                          {entry.plannedRecipeName ? (
+                            <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
+                              {entry.plannedRecipeName}
                             </span>
                           ) : null}
                         </div>
@@ -518,6 +534,7 @@ type ShoppingViewEntry = {
   entryId: string | null;
   item: (ReturnType<typeof useInventoryData>["items"])[number] | null;
   itemId: string | null;
+  recipeId: string | null;
   label: string;
   sourceType: "manual" | "low-stock" | "recipe";
   quantity: number;
@@ -525,6 +542,7 @@ type ShoppingViewEntry = {
   checkedAt: number | null;
   isDerived: boolean;
   placeLabel: string;
+  plannedRecipeName: string | null;
 };
 
 function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
@@ -548,18 +566,6 @@ function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
       placeLabel,
       entries: groupedEntries,
     }));
-}
-
-function getSourceLabel(entry: ShoppingViewEntry) {
-  if (entry.sourceType === "recipe") {
-    return "Recipe item";
-  }
-
-  if (entry.sourceType === "manual") {
-    return "Manual item";
-  }
-
-  return "Stock top-up";
 }
 
 function NavButton({
