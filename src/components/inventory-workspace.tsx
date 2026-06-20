@@ -51,22 +51,84 @@ export function InventoryWorkspace() {
   const lowStockItems = sortLowStockItems(items.filter((item) => item.actualStock < item.desiredStock));
   const todayPlan = getDinnerPlanForDate(mealPlans, toDateKey(new Date()));
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
-  const stockEntries = activeEntries.filter((entry) => entry.sourceType !== "recipe");
-  const mealEntries = activeEntries.filter((entry) => entry.sourceType === "recipe");
-  const lowStockCount = lowStockItems.length;
+  const activeEntryItemIds = new Set(
+    activeEntries.flatMap((entry) => (entry.itemId ? [entry.itemId] : [])),
+  );
+  const derivedLowStockEntries: ShoppingViewEntry[] = lowStockItems
+    .filter((item) => !activeEntryItemIds.has(item.id))
+    .map((item) => ({
+      id: `derived-${item.id}`,
+      entryId: null,
+      item,
+      itemId: item.id,
+      label: item.name,
+      sourceType: "low-stock",
+      quantity: Math.max(item.desiredStock - item.actualStock, 1),
+      unitLabel: null,
+      checkedAt: null,
+      isDerived: true,
+      placeLabel: getLocationLabel(item, places, rooms),
+    }));
+  const combinedEntries: ShoppingViewEntry[] = [
+    ...activeEntries.map((entry) => {
+      const item = entry.itemId ? items.find((candidate) => candidate.id === entry.itemId) ?? null : null;
 
-  async function toggleEntryChecked(entryId: string, checked: boolean) {
-    const entry = shoppingListEntries.find((candidate) => candidate.id === entryId);
-    if (!entry) {
+      return {
+        id: entry.id,
+        entryId: entry.id,
+        item,
+        itemId: entry.itemId ?? null,
+        label: entry.label,
+        sourceType: entry.sourceType,
+        quantity: entry.quantity,
+        unitLabel: entry.unitLabel ?? null,
+        checkedAt: entry.checkedAt ?? null,
+        isDerived: false,
+        placeLabel: item ? getLocationLabel(item, places, rooms) : "Unassigned",
+      };
+    }),
+    ...derivedLowStockEntries,
+  ];
+  const groupedEntries = groupEntriesByPlace(combinedEntries);
+  const lowStockCount = lowStockItems.length;
+  const openEntryCount = combinedEntries.filter((entry) => !entry.checkedAt).length;
+
+  async function toggleEntryChecked(entry: ShoppingViewEntry, checked: boolean) {
+    if (!activeShoppingList) {
       return;
     }
 
     const timestamp = getTimestamp();
-    const nextEntry = {
-      ...entry,
-      checkedAt: checked ? timestamp : null,
-      updatedAt: timestamp,
-    };
+    const persistedEntry =
+      entry.entryId
+        ? shoppingListEntries.find((candidate) => candidate.id === entry.entryId) ?? null
+        : null;
+    const nextEntry = persistedEntry
+      ? {
+          ...persistedEntry,
+          checkedAt: checked ? timestamp : null,
+          updatedAt: timestamp,
+        }
+      : entry.item
+        ? {
+            id: getId(),
+            listId: activeShoppingList.id,
+            userId: entry.item.userId,
+            itemId: entry.item.id,
+            recipeId: null,
+            label: entry.item.name,
+            sourceType: "low-stock" as const,
+            quantity: entry.quantity,
+            unitLabel: entry.unitLabel,
+            checkedAt: checked ? timestamp : null,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          }
+        : null;
+
+    if (!nextEntry) {
+      return;
+    }
 
     await applyShoppingListEntryLocally(nextEntry);
     await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
@@ -193,7 +255,7 @@ export function InventoryWorkspace() {
           </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-[color:var(--color-panel-muted)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
             <ShoppingBasket className="size-4 text-[color:var(--color-forest)]" />
-            {activeEntries.filter((entry) => !entry.checkedAt).length} to buy
+            {openEntryCount} to buy
           </div>
         </div>
 
@@ -202,7 +264,7 @@ export function InventoryWorkspace() {
             eyebrow="Create shopping lists"
             title="Build and work the current list"
             description="Add low-stock items, add recipe ingredients, then roll straight into the next list."
-            metric={`${activeEntries.filter((entry) => !entry.checkedAt).length} open items`}
+            metric={`${openEntryCount} open items`}
             href="/app"
             cta="Open shopping list"
             icon={ShoppingBasket}
@@ -279,7 +341,7 @@ export function InventoryWorkspace() {
               Buy these next
             </h2>
             <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-              Stock top-ups and meal-linked items are split so they are easier to scan.
+              One list, grouped by where each item lives, with low-stock top-ups folded in.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -289,7 +351,7 @@ export function InventoryWorkspace() {
               className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
             >
               <CheckSquare className="size-4" />
-              Add low stock items
+              Save low stock items
             </button>
             <button
               type="button"
@@ -302,25 +364,10 @@ export function InventoryWorkspace() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+        <div className="mt-5">
           <ShoppingSection
-            title="Stock items"
-            description="Low-stock and manual additions."
-            tone="stock"
-            entries={stockEntries}
-            items={items}
-            places={places}
-            rooms={rooms}
-            onToggleEntryChecked={toggleEntryChecked}
-          />
-          <ShoppingSection
-            title="Meal items"
-            description="Ingredients linked from recipes."
-            tone="meal"
-            entries={mealEntries}
-            items={items}
-            places={places}
-            rooms={rooms}
+            groupedEntries={groupedEntries}
+            derivedCount={derivedLowStockEntries.length}
             onToggleEntryChecked={toggleEntryChecked}
           />
         </div>
@@ -330,124 +377,189 @@ export function InventoryWorkspace() {
 }
 
 function ShoppingSection({
-  title,
-  description,
-  tone,
-  entries,
-  items,
-  places,
-  rooms,
+  groupedEntries,
+  derivedCount,
   onToggleEntryChecked,
 }: {
-  title: string;
-  description: string;
-  tone: "stock" | "meal";
-  entries: ReturnType<typeof useInventoryData>["shoppingListEntries"];
-  items: ReturnType<typeof useInventoryData>["items"];
-  places: ReturnType<typeof useInventoryData>["places"];
-  rooms: ReturnType<typeof useInventoryData>["rooms"];
-  onToggleEntryChecked: (entryId: string, checked: boolean) => Promise<void>;
+  groupedEntries: Array<{
+    placeLabel: string;
+    entries: ShoppingViewEntry[];
+  }>;
+  derivedCount: number;
+  onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
 }) {
   return (
-    <div
-      className={cn(
-        "rounded-[1.75rem] border p-4",
-        tone === "meal"
-          ? "border-[color:var(--color-forest)]/15 bg-[linear-gradient(180deg,rgba(193,219,188,0.34),rgba(255,255,255,0.96))]"
-          : "border-black/5 bg-[color:var(--color-panel-muted)]",
-      )}
-    >
+    <div className="rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(237,242,235,0.92))] p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-            {title}
+            Current list
           </p>
-          <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">{description}</p>
+          <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+            Manual items, recipe ingredients, and low-stock top-ups grouped by place.
+          </p>
         </div>
         <div className="rounded-full bg-white/90 px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
-          {entries.filter((entry) => !entry.checkedAt).length} open
+          {groupedEntries.reduce(
+            (count, group) => count + group.entries.filter((entry) => !entry.checkedAt).length,
+            0,
+          )}{" "}
+          open
         </div>
       </div>
 
+      {derivedCount > 0 ? (
+        <div className="mt-4 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
+          {derivedCount} low-stock item{derivedCount === 1 ? "" : "s"} are already shown here
+          even if they haven&apos;t been manually saved to the list yet.
+        </div>
+      ) : null}
+
       <div className="mt-4 space-y-3">
-        {entries.length === 0 ? (
+        {groupedEntries.length === 0 ? (
           <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-white/70 px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
-            {tone === "meal"
-              ? "No meal-linked items yet."
-              : "No stock items yet. Add low stock items or add items manually from the items page."}
+            No shopping items yet. Low-stock items and recipe ingredients will show up here.
           </div>
         ) : (
-          entries.map((entry) => {
-            const item = entry.itemId ? items.find((candidate) => candidate.id === entry.itemId) : null;
+          groupedEntries.map((group) => (
+            <div key={group.placeLabel} className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3">
+              <div className="flex items-center justify-between gap-3 px-1 pb-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+                    {group.placeLabel}
+                  </p>
+                </div>
+                <div className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--color-ink)]">
+                  {group.entries.filter((entry) => !entry.checkedAt).length} open
+                </div>
+              </div>
 
-            return (
-              <article
-                key={entry.id}
-                className={cn(
-                  "rounded-[1.5rem] border px-4 py-4 transition",
-                  entry.checkedAt
-                    ? "border-black/5 bg-white/70 opacity-70"
-                    : tone === "meal"
-                      ? "border-[color:var(--color-forest)]/20 bg-white"
-                      : "border-black/10 bg-white/85",
-                )}
-              >
-                <label className="flex items-start gap-4">
-                  <input
-                    type="checkbox"
-                    checked={Boolean(entry.checkedAt)}
-                    onChange={(event) =>
-                      void onToggleEntryChecked(entry.id, event.target.checked)
-                    }
-                    className="mt-1 size-5 rounded border-black/20"
-                  />
-                  <div className="min-w-0 flex-1">
-                    {item ? (
-                      <Link
-                        href={`/app/items/${item.id}`}
-                        className="text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline"
-                      >
-                        {entry.label}
-                      </Link>
-                    ) : (
-                      <h3 className="text-base font-semibold text-[color:var(--color-ink)]">
-                        {entry.label}
-                      </h3>
-                    )}
-                    {item ? (
-                      <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-                        {getLocationLabel(item, places, rooms)}
-                      </p>
-                    ) : null}
-                    <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-                      {entry.quantity} {entry.unitLabel ?? "item"}
-                      {entry.sourceType === "recipe" ? " · recipe-linked" : ""}
-                    </p>
-                  </div>
-                  <span
+              <div className="space-y-3">
+                {group.entries.map((entry) => (
+                  <article
+                    key={entry.id}
                     className={cn(
-                      "rounded-full px-3 py-1 text-xs font-semibold",
+                      "rounded-[1.25rem] border px-4 py-4 transition",
                       entry.checkedAt
-                        ? "bg-[color:var(--color-forest)] text-white"
-                        : item?.actualStock && item.actualStock > 0
-                          ? "bg-amber-500 text-white"
-                          : "bg-red-600 text-white",
+                        ? "border-black/5 bg-white/70 opacity-70"
+                        : entry.sourceType === "recipe"
+                          ? "border-[color:var(--color-forest)]/20 bg-[color:var(--color-forest)]/5"
+                          : entry.sourceType === "manual"
+                            ? "border-sky-200 bg-sky-50/80"
+                            : "border-amber-200 bg-amber-50/80",
                     )}
                   >
-                    {entry.checkedAt
-                      ? "Done"
-                      : item?.actualStock && item.actualStock > 0
-                        ? "Low"
-                        : "Out"}
-                  </span>
-                </label>
-              </article>
-            );
-          })
+                    <label className="flex items-start gap-4">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(entry.checkedAt)}
+                        onChange={(event) =>
+                          void onToggleEntryChecked(entry, event.target.checked)
+                        }
+                        className="mt-1 size-5 rounded border-black/20"
+                      />
+                      <div className="min-w-0 flex-1">
+                        {entry.item ? (
+                          <Link
+                            href={`/app/items/${entry.item.id}`}
+                            className="text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline"
+                          >
+                            {entry.label}
+                          </Link>
+                        ) : (
+                          <h3 className="text-base font-semibold text-[color:var(--color-ink)]">
+                            {entry.label}
+                          </h3>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                            {getSourceLabel(entry)}
+                          </span>
+                          {entry.isDerived ? (
+                            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                              Auto from stock
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+                          {entry.quantity} {entry.unitLabel ?? "item"}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-3 py-1 text-xs font-semibold",
+                          entry.checkedAt
+                            ? "bg-[color:var(--color-forest)] text-white"
+                            : entry.item?.actualStock && entry.item.actualStock > 0
+                              ? "bg-amber-500 text-white"
+                              : "bg-red-600 text-white",
+                        )}
+                      >
+                        {entry.checkedAt
+                          ? "Done"
+                          : entry.item?.actualStock && entry.item.actualStock > 0
+                            ? "Low"
+                            : "Out"}
+                      </span>
+                    </label>
+                  </article>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </div>
   );
+}
+
+type ShoppingViewEntry = {
+  id: string;
+  entryId: string | null;
+  item: (ReturnType<typeof useInventoryData>["items"])[number] | null;
+  itemId: string | null;
+  label: string;
+  sourceType: "manual" | "low-stock" | "recipe";
+  quantity: number;
+  unitLabel: string | null;
+  checkedAt: number | null;
+  isDerived: boolean;
+  placeLabel: string;
+};
+
+function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
+  const groups = new Map<string, ShoppingViewEntry[]>();
+
+  for (const entry of [...entries].sort((left, right) => {
+    if (Boolean(left.checkedAt) !== Boolean(right.checkedAt)) {
+      return left.checkedAt ? 1 : -1;
+    }
+
+    return left.label.localeCompare(right.label);
+  })) {
+    const current = groups.get(entry.placeLabel) ?? [];
+    current.push(entry);
+    groups.set(entry.placeLabel, current);
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([placeLabel, groupedEntries]) => ({
+      placeLabel,
+      entries: groupedEntries,
+    }));
+}
+
+function getSourceLabel(entry: ShoppingViewEntry) {
+  if (entry.sourceType === "recipe") {
+    return "Recipe item";
+  }
+
+  if (entry.sourceType === "manual") {
+    return "Manual item";
+  }
+
+  return "Stock top-up";
 }
 
 function NavButton({
