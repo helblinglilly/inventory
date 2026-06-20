@@ -1,13 +1,19 @@
 "use client";
 
 import { offlineDb } from "@/features/inventory/offline-db";
+import { setSyncStatus } from "@/features/inventory/sync-status";
 import {
   bootstrapResponseSchema,
   mutationSchema,
   type BootstrapResponse,
   type ItemRecord,
+  type MealPlanRecord,
   type PlaceRecord,
+  type RecipeIngredientRecord,
+  type RecipeRecord,
   type RoomRecord,
+  type ShoppingListEntryRecord,
+  type ShoppingListRecord,
   type SyncMutation,
 } from "@/features/inventory/types";
 
@@ -73,12 +79,52 @@ export async function applyRoomLocally(room: RoomRecord) {
   await offlineDb.rooms.put(room);
 }
 
+export async function deleteRoomLocally(roomId: string) {
+  await offlineDb.rooms.delete(roomId);
+}
+
 export async function applyPlaceLocally(place: PlaceRecord) {
   await offlineDb.places.put(place);
 }
 
+export async function deletePlaceLocally(placeId: string) {
+  await offlineDb.places.delete(placeId);
+}
+
 export async function applyItemLocally(item: ItemRecord) {
   await offlineDb.items.put(item);
+}
+
+export async function applyShoppingListLocally(list: ShoppingListRecord) {
+  await offlineDb.shoppingLists.put(list);
+}
+
+export async function applyShoppingListEntryLocally(entry: ShoppingListEntryRecord) {
+  await offlineDb.shoppingListEntries.put(entry);
+}
+
+export async function deleteShoppingListEntryLocally(entryId: string) {
+  await offlineDb.shoppingListEntries.delete(entryId);
+}
+
+export async function applyRecipeLocally(recipe: RecipeRecord) {
+  await offlineDb.recipes.put(recipe);
+}
+
+export async function applyRecipeIngredientLocally(ingredient: RecipeIngredientRecord) {
+  await offlineDb.recipeIngredients.put(ingredient);
+}
+
+export async function deleteRecipeIngredientLocally(ingredientId: string) {
+  await offlineDb.recipeIngredients.delete(ingredientId);
+}
+
+export async function applyMealPlanLocally(mealPlan: MealPlanRecord) {
+  await offlineDb.mealPlans.put(mealPlan);
+}
+
+export async function deleteMealPlanLocally(mealPlanId: string) {
+  await offlineDb.mealPlans.delete(mealPlanId);
 }
 
 export async function flushMutations() {
@@ -88,20 +134,32 @@ export async function flushMutations() {
     return;
   }
 
-  const response = await fetch("/api/inventory/sync", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ mutations }),
-  });
+  setSyncStatus({ active: true, total: mutations.length });
 
-  if (!response.ok) {
-    throw new Error("Unable to sync inventory changes");
+  try {
+    const response = await fetch("/api/inventory/sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ mutations }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to sync inventory changes");
+    }
+
+    const payload = bootstrapResponseSchema.parse(await response.json());
+
+    await offlineDb.transaction(
+      "rw",
+      offlineDb.mutations,
+      async () => {
+        await hydrateLocalSnapshot(payload);
+        await offlineDb.mutations.bulkDelete(mutations.map((mutation) => mutation.id));
+      },
+    );
+  } finally {
+    setSyncStatus({ active: false, total: 0 });
   }
-
-  const payload = bootstrapResponseSchema.parse(await response.json());
-
-  await hydrateLocalSnapshot(payload);
-  await offlineDb.mutations.bulkDelete(mutations.map((mutation) => mutation.id));
 }

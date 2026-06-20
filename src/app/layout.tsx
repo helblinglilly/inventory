@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, IBM_Plex_Mono } from "next/font/google";
+import { ServiceWorkerReset } from "@/components/service-worker-reset";
 import "./globals.css";
 
 const sans = DM_Sans({
@@ -30,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body>{children}</body>
+      <body>
+        <ServiceWorkerReset />
+        {children}
+      </body>
     </html>
   );
 }

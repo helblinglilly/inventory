@@ -1,0 +1,1 @@
+ALTER TABLE `inventory_item` ADD `price_paid_pence` integer;

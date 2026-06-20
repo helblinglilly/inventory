@@ -1,22 +1,63 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { items, places, rooms } from "@/db/inventory-schema";
+import {
+  items,
+  mealPlans,
+  places,
+  recipeIngredients,
+  recipes,
+  rooms,
+  shoppingListEntries,
+  shoppingLists,
+} from "@/db/inventory-schema";
 import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { bootstrapResponseSchema } from "@/features/inventory/types";
+import { getId } from "@/features/inventory/helpers";
 
 const syncSchema = z.object({
   mutations: z.array(
     z.object({
       id: z.string(),
-      entity: z.enum(["room", "place", "item"]),
-      operation: z.enum(["upsert", "adjust-stock"]),
+      entity: z.enum([
+        "room",
+        "place",
+        "item",
+        "shopping-list",
+        "shopping-list-entry",
+        "recipe",
+        "recipe-ingredient",
+        "meal-plan",
+      ]),
+      operation: z.enum(["upsert", "adjust-stock", "delete"]),
       payload: z.record(z.string(), z.any()),
       queuedAt: z.number(),
     }),
   ),
 });
+
+async function ensureActiveShoppingList(userId: string) {
+  const existingLists = await db
+    .select()
+    .from(shoppingLists)
+    .where(eq(shoppingLists.userId, userId))
+    .orderBy(asc(shoppingLists.createdAt));
+
+  if (existingLists.some((entry) => entry.status === "active")) {
+    return;
+  }
+
+  const now = Date.now();
+  await db.insert(shoppingLists).values({
+    id: getId(),
+    userId,
+    name: "Current list",
+    status: "active",
+    createdAt: new Date(now),
+    updatedAt: new Date(now),
+  });
+}
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -53,6 +94,12 @@ export async function POST(request: Request) {
           });
       }
 
+      if (mutation.entity === "room" && mutation.operation === "delete") {
+        await tx
+          .delete(rooms)
+          .where(and(eq(rooms.id, String(mutation.payload.id)), eq(rooms.userId, userId)));
+      }
+
       if (mutation.entity === "place" && mutation.operation === "upsert") {
         await tx
           .insert(places)
@@ -76,6 +123,12 @@ export async function POST(request: Request) {
           });
       }
 
+      if (mutation.entity === "place" && mutation.operation === "delete") {
+        await tx
+          .delete(places)
+          .where(and(eq(places.id, String(mutation.payload.id)), eq(places.userId, userId)));
+      }
+
       if (mutation.entity === "item" && mutation.operation === "upsert") {
         await tx
           .insert(items)
@@ -87,6 +140,9 @@ export async function POST(request: Request) {
             notes: mutation.payload.notes ?? null,
             imageUrl: mutation.payload.imageUrl ?? null,
             imageProxyUrl: mutation.payload.imageProxyUrl ?? null,
+            pricePaidPence: mutation.payload.pricePaidPence ?? null,
+            isStaple: mutation.payload.isStaple ?? false,
+            trackPriceHistory: mutation.payload.trackPriceHistory ?? false,
             desiredStock: mutation.payload.desiredStock,
             actualStock: mutation.payload.actualStock,
             createdAt: new Date(mutation.payload.createdAt),
@@ -100,6 +156,9 @@ export async function POST(request: Request) {
               notes: mutation.payload.notes ?? null,
               imageUrl: mutation.payload.imageUrl ?? null,
               imageProxyUrl: mutation.payload.imageProxyUrl ?? null,
+              pricePaidPence: mutation.payload.pricePaidPence ?? null,
+              isStaple: mutation.payload.isStaple ?? false,
+              trackPriceHistory: mutation.payload.trackPriceHistory ?? false,
               desiredStock: mutation.payload.desiredStock,
               actualStock: mutation.payload.actualStock,
               updatedAt: new Date(mutation.payload.updatedAt),
@@ -119,10 +178,197 @@ export async function POST(request: Request) {
           })
           .where(and(eq(items.id, itemId), eq(items.userId, userId)));
       }
+
+      if (mutation.entity === "shopping-list" && mutation.operation === "upsert") {
+        await tx
+          .insert(shoppingLists)
+          .values({
+            id: mutation.payload.id,
+            userId,
+            name: mutation.payload.name,
+            status: mutation.payload.status ?? "active",
+            clearedAt: mutation.payload.clearedAt
+              ? new Date(mutation.payload.clearedAt)
+              : null,
+            createdAt: new Date(mutation.payload.createdAt),
+            updatedAt: new Date(mutation.payload.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: shoppingLists.id,
+            set: {
+              name: mutation.payload.name,
+              status: mutation.payload.status ?? "active",
+              clearedAt: mutation.payload.clearedAt
+                ? new Date(mutation.payload.clearedAt)
+                : null,
+              updatedAt: new Date(mutation.payload.updatedAt),
+            },
+          });
+      }
+
+      if (mutation.entity === "shopping-list-entry" && mutation.operation === "upsert") {
+        await tx
+          .insert(shoppingListEntries)
+          .values({
+            id: mutation.payload.id,
+            listId: mutation.payload.listId,
+            userId,
+            itemId: mutation.payload.itemId ?? null,
+            recipeId: mutation.payload.recipeId ?? null,
+            label: mutation.payload.label,
+            sourceType: mutation.payload.sourceType ?? "manual",
+            quantity: mutation.payload.quantity ?? 1,
+            unitLabel: mutation.payload.unitLabel ?? null,
+            checkedAt: mutation.payload.checkedAt
+              ? new Date(mutation.payload.checkedAt)
+              : null,
+            createdAt: new Date(mutation.payload.createdAt),
+            updatedAt: new Date(mutation.payload.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: shoppingListEntries.id,
+            set: {
+              listId: mutation.payload.listId,
+              itemId: mutation.payload.itemId ?? null,
+              recipeId: mutation.payload.recipeId ?? null,
+              label: mutation.payload.label,
+              sourceType: mutation.payload.sourceType ?? "manual",
+              quantity: mutation.payload.quantity ?? 1,
+              unitLabel: mutation.payload.unitLabel ?? null,
+              checkedAt: mutation.payload.checkedAt
+                ? new Date(mutation.payload.checkedAt)
+                : null,
+              updatedAt: new Date(mutation.payload.updatedAt),
+            },
+          });
+      }
+
+      if (mutation.entity === "shopping-list-entry" && mutation.operation === "delete") {
+        await tx
+          .delete(shoppingListEntries)
+          .where(
+            and(
+              eq(shoppingListEntries.id, String(mutation.payload.id)),
+              eq(shoppingListEntries.userId, userId),
+            ),
+          );
+      }
+
+      if (mutation.entity === "recipe" && mutation.operation === "upsert") {
+        await tx
+          .insert(recipes)
+          .values({
+            id: mutation.payload.id,
+            userId,
+            name: mutation.payload.name,
+            notes: mutation.payload.notes ?? null,
+            imageUrl: mutation.payload.imageUrl ?? null,
+            imageProxyUrl: mutation.payload.imageProxyUrl ?? null,
+            createdAt: new Date(mutation.payload.createdAt),
+            updatedAt: new Date(mutation.payload.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: recipes.id,
+            set: {
+              name: mutation.payload.name,
+              notes: mutation.payload.notes ?? null,
+              imageUrl: mutation.payload.imageUrl ?? null,
+              imageProxyUrl: mutation.payload.imageProxyUrl ?? null,
+              updatedAt: new Date(mutation.payload.updatedAt),
+            },
+          });
+      }
+
+      if (mutation.entity === "recipe" && mutation.operation === "delete") {
+        await tx
+          .delete(recipes)
+          .where(and(eq(recipes.id, String(mutation.payload.id)), eq(recipes.userId, userId)));
+      }
+
+      if (mutation.entity === "recipe-ingredient" && mutation.operation === "upsert") {
+        await tx
+          .insert(recipeIngredients)
+          .values({
+            id: mutation.payload.id,
+            recipeId: mutation.payload.recipeId,
+            userId,
+            itemId: mutation.payload.itemId,
+            quantity: mutation.payload.quantity ?? 1,
+            unitLabel: mutation.payload.unitLabel ?? null,
+            includeInCost: mutation.payload.includeInCost ?? true,
+            createdAt: new Date(mutation.payload.createdAt),
+            updatedAt: new Date(mutation.payload.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: recipeIngredients.id,
+            set: {
+              itemId: mutation.payload.itemId,
+              quantity: mutation.payload.quantity ?? 1,
+              unitLabel: mutation.payload.unitLabel ?? null,
+              includeInCost: mutation.payload.includeInCost ?? true,
+              updatedAt: new Date(mutation.payload.updatedAt),
+            },
+          });
+      }
+
+      if (mutation.entity === "recipe-ingredient" && mutation.operation === "delete") {
+        await tx
+          .delete(recipeIngredients)
+          .where(
+            and(
+              eq(recipeIngredients.id, String(mutation.payload.id)),
+              eq(recipeIngredients.userId, userId),
+            ),
+          );
+      }
+
+      if (mutation.entity === "meal-plan" && mutation.operation === "upsert") {
+        await tx
+          .insert(mealPlans)
+          .values({
+            id: mutation.payload.id,
+            userId,
+            plannedFor: mutation.payload.plannedFor,
+            mealSlot: mutation.payload.mealSlot ?? "dinner",
+            recipeId: mutation.payload.recipeId ?? null,
+            notes: mutation.payload.notes ?? null,
+            createdAt: new Date(mutation.payload.createdAt),
+            updatedAt: new Date(mutation.payload.updatedAt),
+          })
+          .onConflictDoUpdate({
+            target: mealPlans.id,
+            set: {
+              plannedFor: mutation.payload.plannedFor,
+              mealSlot: mutation.payload.mealSlot ?? "dinner",
+              recipeId: mutation.payload.recipeId ?? null,
+              notes: mutation.payload.notes ?? null,
+              updatedAt: new Date(mutation.payload.updatedAt),
+            },
+          });
+      }
+
+      if (mutation.entity === "meal-plan" && mutation.operation === "delete") {
+        await tx
+          .delete(mealPlans)
+          .where(
+            and(eq(mealPlans.id, String(mutation.payload.id)), eq(mealPlans.userId, userId)),
+          );
+      }
     }
   });
 
-  const [roomRows, placeRows, itemRows] = await Promise.all([
+  await ensureActiveShoppingList(userId);
+
+  const [
+    roomRows,
+    placeRows,
+    itemRows,
+    shoppingListRows,
+    shoppingListEntryRows,
+    recipeRows,
+    recipeIngredientRows,
+    mealPlanRows,
+  ] = await Promise.all([
     db
       .select()
       .from(rooms)
@@ -138,6 +384,31 @@ export async function POST(request: Request) {
       .from(items)
       .where(eq(items.userId, userId))
       .orderBy(asc(items.name)),
+    db
+      .select()
+      .from(shoppingLists)
+      .where(eq(shoppingLists.userId, userId))
+      .orderBy(asc(shoppingLists.createdAt)),
+    db
+      .select()
+      .from(shoppingListEntries)
+      .where(eq(shoppingListEntries.userId, userId))
+      .orderBy(asc(shoppingListEntries.createdAt)),
+    db
+      .select()
+      .from(recipes)
+      .where(eq(recipes.userId, userId))
+      .orderBy(asc(recipes.name)),
+    db
+      .select()
+      .from(recipeIngredients)
+      .where(eq(recipeIngredients.userId, userId))
+      .orderBy(asc(recipeIngredients.createdAt)),
+    db
+      .select()
+      .from(mealPlans)
+      .where(eq(mealPlans.userId, userId))
+      .orderBy(asc(mealPlans.plannedFor)),
   ]);
 
   const payload = bootstrapResponseSchema.parse({
@@ -155,6 +426,33 @@ export async function POST(request: Request) {
       ...item,
       createdAt: item.createdAt.getTime(),
       updatedAt: item.updatedAt.getTime(),
+    })),
+    shoppingLists: shoppingListRows.map((list) => ({
+      ...list,
+      clearedAt: list.clearedAt?.getTime() ?? null,
+      createdAt: list.createdAt.getTime(),
+      updatedAt: list.updatedAt.getTime(),
+    })),
+    shoppingListEntries: shoppingListEntryRows.map((entry) => ({
+      ...entry,
+      checkedAt: entry.checkedAt?.getTime() ?? null,
+      createdAt: entry.createdAt.getTime(),
+      updatedAt: entry.updatedAt.getTime(),
+    })),
+    recipes: recipeRows.map((recipe) => ({
+      ...recipe,
+      createdAt: recipe.createdAt.getTime(),
+      updatedAt: recipe.updatedAt.getTime(),
+    })),
+    recipeIngredients: recipeIngredientRows.map((ingredient) => ({
+      ...ingredient,
+      createdAt: ingredient.createdAt.getTime(),
+      updatedAt: ingredient.updatedAt.getTime(),
+    })),
+    mealPlans: mealPlanRows.map((mealPlan) => ({
+      ...mealPlan,
+      createdAt: mealPlan.createdAt.getTime(),
+      updatedAt: mealPlan.updatedAt.getTime(),
     })),
     serverTime: Date.now(),
   });
