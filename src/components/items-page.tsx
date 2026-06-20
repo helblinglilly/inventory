@@ -203,7 +203,7 @@ function ItemCard({
   return (
     <article
       className={cn(
-        "rounded-[1.5rem] border px-4 py-4 transition",
+        "rounded-[1.5rem] border p-4 transition",
         item.actualStock <= 0
           ? "border-red-200 bg-red-50"
           : item.actualStock < item.desiredStock
@@ -212,48 +212,52 @@ function ItemCard({
       )}
     >
       <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Link
-            href={`/app/items/${item.id}`}
-            className="text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline"
-          >
-            {item.name}
-          </Link>
-          <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-            {getLocationLabel(item, places, rooms)}
-          </p>
-          <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-            Target {item.desiredStock}, currently {item.actualStock}
-            {formatCurrencyFromPence(item.pricePaidPence)
-              ? ` · Paid ${formatCurrencyFromPence(item.pricePaidPence)}`
-              : ""}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {item.isStaple ? (
-              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                Staple
-              </span>
-            ) : null}
-            {item.trackPriceHistory ? (
-              <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                Price tracked
-              </span>
-            ) : null}
+        <Link
+          href={`/app/items/${item.id}`}
+          className="min-w-0 flex-1 rounded-[1.25rem] outline-none transition hover:opacity-85 focus-visible:ring-2 focus-visible:ring-[color:var(--color-forest)]"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline">
+                {item.name}
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                {getLocationLabel(item, places, rooms)}
+              </p>
+              <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                Target {item.desiredStock}, currently {item.actualStock}
+                {formatCurrencyFromPence(item.pricePaidPence)
+                  ? ` · Paid ${formatCurrencyFromPence(item.pricePaidPence)}`
+                  : ""}
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {item.isStaple ? (
+                  <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                    Staple
+                  </span>
+                ) : null}
+                {item.trackPriceHistory ? (
+                  <span className="rounded-full bg-white/80 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                    Price tracked
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <span
+              className={cn(
+                "shrink-0 rounded-full px-3 py-1 text-xs font-semibold",
+                item.actualStock <= 0
+                  ? "bg-red-600 text-white"
+                  : item.actualStock < item.desiredStock
+                    ? "bg-amber-500 text-white"
+                    : "bg-[color:var(--color-forest)] text-white",
+              )}
+            >
+              {formatRelativeStock(item.actualStock, item.desiredStock)}
+            </span>
           </div>
-        </div>
-        <div className="flex flex-col items-end gap-3">
-          <span
-            className={cn(
-              "rounded-full px-3 py-1 text-xs font-semibold",
-              item.actualStock <= 0
-                ? "bg-red-600 text-white"
-                : item.actualStock < item.desiredStock
-                  ? "bg-amber-500 text-white"
-                  : "bg-[color:var(--color-forest)] text-white",
-            )}
-          >
-            {formatRelativeStock(item.actualStock, item.desiredStock)}
-          </span>
+        </Link>
+        <div className="flex shrink-0 flex-col items-end gap-3">
           <button
             type="button"
             onClick={() => void onAddToShoppingList(item.id)}
