@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { startTransition } from "react";
 import {
+  ArrowRight,
   CheckSquare,
   ChefHat,
   ListRestart,
   Loader2,
   PackagePlus,
+  PackageSearch,
   ShoppingBasket,
 } from "lucide-react";
 import {
@@ -51,6 +53,7 @@ export function InventoryWorkspace() {
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
   const stockEntries = activeEntries.filter((entry) => entry.sourceType !== "recipe");
   const mealEntries = activeEntries.filter((entry) => entry.sourceType === "recipe");
+  const lowStockCount = lowStockItems.length;
 
   async function toggleEntryChecked(entryId: string, checked: boolean) {
     const entry = shoppingListEntries.find((candidate) => candidate.id === entryId);
@@ -179,13 +182,13 @@ export function InventoryWorkspace() {
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
-              Navigation
+              Home
             </p>
             <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-              Jump straight in
+              Three jobs, three quick paths
             </h2>
             <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-              Home keeps the essentials visible without the extra clutter.
+              Shopping lists, meal planning, and stock tracking each get their own clear route.
             </p>
           </div>
           <div className="inline-flex items-center gap-2 rounded-full bg-[color:var(--color-panel-muted)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
@@ -194,13 +197,45 @@ export function InventoryWorkspace() {
           </div>
         </div>
 
+        <div className="mt-5 grid gap-4 lg:grid-cols-3">
+          <FlowCard
+            eyebrow="Create shopping lists"
+            title="Build and work the current list"
+            description="Add low-stock items, add recipe ingredients, then roll straight into the next list."
+            metric={`${activeEntries.filter((entry) => !entry.checkedAt).length} open items`}
+            href="/app"
+            cta="Open shopping list"
+            icon={ShoppingBasket}
+          />
+          <FlowCard
+            eyebrow="Plan meals"
+            title={todayRecipe?.name ?? "Plan the next meal"}
+            description={
+              todayRecipe
+                ? "Today is already planned. Open the planner to adjust the week or add notes."
+                : "Choose meals by day, then kick the ingredients onto the shopping list."
+            }
+            metric={todayRecipe ? "Today planned" : "Nothing set for today"}
+            href="/app/planner"
+            cta="Open planner"
+            icon={ChefHat}
+          />
+          <FlowCard
+            eyebrow="Track stock"
+            title="Review what needs topping up"
+            description="Check stock levels, open an item, or add new products into the right place."
+            metric={`${lowStockCount} low-stock item${lowStockCount === 1 ? "" : "s"}`}
+            href="/app/items"
+            cta="Review stock"
+            icon={PackageSearch}
+          />
+        </div>
+
         <div className="mt-5 flex flex-wrap gap-3">
-          <NavButton href="/app/add" label="Add" icon={PackagePlus} />
+          <NavButton href="/app/add" label="Add item" icon={PackagePlus} />
+          <NavButton href="/app/recipes" label="Recipes" />
           <NavButton href="/app/rooms" label="Rooms" />
           <NavButton href="/app/places" label="Places" />
-          <NavButton href="/app/items" label="Items" />
-          <NavButton href="/app/recipes" label="Recipes" />
-          <NavButton href="/app/planner" label="Planner" />
         </div>
       </section>
 
@@ -431,6 +466,51 @@ function NavButton({
     >
       {Icon ? <Icon className="size-4" /> : null}
       {label}
+    </Link>
+  );
+}
+
+function FlowCard({
+  eyebrow,
+  title,
+  description,
+  metric,
+  href,
+  cta,
+  icon: Icon,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  metric: string;
+  href: string;
+  cta: string;
+  icon: typeof ShoppingBasket;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-[1.75rem] border border-black/5 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(237,242,235,0.92))] p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.55)] transition hover:-translate-y-0.5 hover:border-[color:var(--color-forest)]/20"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+            {eyebrow}
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-[color:var(--color-ink)]">{title}</h3>
+        </div>
+        <div className="rounded-full bg-white p-3 text-[color:var(--color-forest)] shadow-sm">
+          <Icon className="size-5" />
+        </div>
+      </div>
+
+      <p className="mt-3 text-sm leading-6 text-[color:var(--color-ink-soft)]">{description}</p>
+      <p className="mt-4 text-sm font-medium text-[color:var(--color-ink)]">{metric}</p>
+
+      <div className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[color:var(--color-forest)]">
+        {cta}
+        <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+      </div>
     </Link>
   );
 }

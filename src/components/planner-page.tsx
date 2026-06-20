@@ -174,7 +174,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <section className="rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
-          <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="mb-4 flex items-center justify-between gap-2 sm:gap-4">
             <button
               type="button"
               onClick={() =>
@@ -182,12 +182,12 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   (current) => new Date(current.getFullYear(), current.getMonth() - 1, 1),
                 )
               }
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] sm:px-4"
             >
               <ChevronLeft className="size-4" />
-              Previous
+              <span className="hidden sm:inline">Previous</span>
             </button>
-            <h3 className="text-lg font-semibold text-[color:var(--color-ink)]">
+            <h3 className="text-center text-base font-semibold text-[color:var(--color-ink)] sm:text-lg">
               {monthAnchor.toLocaleDateString("en-GB", {
                 month: "long",
                 year: "numeric",
@@ -200,26 +200,28 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   (current) => new Date(current.getFullYear(), current.getMonth() + 1, 1),
                 )
               }
-              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+              className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-2 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] sm:px-4"
             >
-              Next
+              <span className="hidden sm:inline">Next</span>
               <ChevronRight className="size-4" />
             </button>
           </div>
 
-          <div className="grid grid-cols-7 gap-2 text-center text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+          <div className="grid grid-cols-7 gap-1 text-center text-[10px] uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)] sm:gap-2 sm:text-xs">
             {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-              <div key={day} className="px-2 py-2">
-                {day}
+              <div key={day} className="px-1 py-2 sm:px-2">
+                <span className="sm:hidden">{day.slice(0, 1)}</span>
+                <span className="hidden sm:inline">{day}</span>
               </div>
             ))}
           </div>
 
-          <div className="mt-2 grid grid-cols-7 gap-2">
+          <div className="mt-2 grid grid-cols-7 gap-1 sm:gap-2">
             {monthGrid.map((date) => {
               const dateKey = toDateKey(date);
               const plan = getDinnerPlanForDate(mealPlans, dateKey);
               const recipe = recipes.find((entry) => entry.id === plan?.recipeId) ?? null;
+              const hasMeal = Boolean(recipe || plan?.notes);
               const isCurrentMonth = date.getMonth() === monthAnchor.getMonth();
               const isSelected = dateKey === selectedDateKey;
 
@@ -229,22 +231,41 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   type="button"
                   onClick={() => setSelectedDateKey(dateKey)}
                   className={cn(
-                    "min-h-28 rounded-[1.5rem] border p-3 text-left transition",
+                    "min-h-16 rounded-[1.1rem] border px-2 py-2 text-left transition sm:min-h-28 sm:rounded-[1.5rem] sm:p-3",
                     isSelected
                       ? "border-[color:var(--color-forest)] bg-[color:var(--color-panel-muted)] shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]"
                       : "border-black/10 bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
                     !isCurrentMonth && "opacity-45",
                   )}
                 >
-                  <p className="text-sm font-semibold text-[color:var(--color-ink)]">
-                    {date.getDate()}
-                  </p>
-                  <p className="mt-2 text-xs uppercase tracking-[0.14em] text-[color:var(--color-ink-soft)]">
-                    Meal
-                  </p>
-                  <p className="mt-2 line-clamp-2 text-sm text-[color:var(--color-ink)]">
-                    {recipe?.name ?? "Nothing planned"}
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-[color:var(--color-ink)]">
+                      {date.getDate()}
+                    </p>
+                    {hasMeal ? (
+                      <span className="mt-1 size-2 rounded-full bg-[color:var(--color-clay)] sm:hidden" />
+                    ) : null}
+                  </div>
+                  {hasMeal ? (
+                    <>
+                      <p className="mt-2 hidden text-xs uppercase tracking-[0.14em] text-[color:var(--color-ink-soft)] sm:block">
+                        Meal
+                      </p>
+                      <p className="mt-2 hidden line-clamp-2 text-sm text-[color:var(--color-ink)] sm:block">
+                        {recipe?.name ?? plan?.notes ?? "Planned"}
+                      </p>
+                    </>
+                  ) : null}
+                  {!hasMeal ? (
+                    <p className="mt-2 hidden text-sm text-[color:var(--color-ink-soft)] sm:block">
+                      Nothing planned
+                    </p>
+                  ) : null}
+                  {hasMeal ? (
+                    <p className="mt-2 text-[11px] font-medium text-[color:var(--color-ink-soft)] sm:hidden">
+                      Planned
+                    </p>
+                  ) : null}
                 </button>
               );
             })}
