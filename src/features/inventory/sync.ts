@@ -17,6 +17,125 @@ import {
   type SyncMutation,
 } from "@/features/inventory/types";
 
+async function replayPendingMutations(excludedMutationIds: string[] = []) {
+  const excludedIds = new Set(excludedMutationIds);
+  const pendingMutations = await offlineDb.mutations.orderBy("queuedAt").toArray();
+
+  for (const mutation of pendingMutations) {
+    if (excludedIds.has(mutation.id)) {
+      continue;
+    }
+
+    if (mutation.entity === "room") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.rooms.put(mutation.payload as RoomRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.rooms.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "place") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.places.put(mutation.payload as PlaceRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.places.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "item") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.items.put(mutation.payload as ItemRecord);
+      }
+
+      if (mutation.operation === "adjust-stock") {
+        const itemId = String(mutation.payload.id);
+        const delta = Number(mutation.payload.delta ?? 0);
+        const item = await offlineDb.items.get(itemId);
+
+        if (item) {
+          await offlineDb.items.put({
+            ...item,
+            actualStock: Math.max(item.actualStock + delta, 0),
+            updatedAt: Number(mutation.payload.updatedAt ?? item.updatedAt),
+          });
+        }
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.items.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "shopping-list") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.shoppingLists.put(mutation.payload as ShoppingListRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.shoppingLists.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "shopping-list-entry") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.shoppingListEntries.put(mutation.payload as ShoppingListEntryRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.shoppingListEntries.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "recipe") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.recipes.put(mutation.payload as RecipeRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.recipes.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "recipe-ingredient") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.recipeIngredients.put(mutation.payload as RecipeIngredientRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.recipeIngredients.delete(String(mutation.payload.id));
+      }
+
+      continue;
+    }
+
+    if (mutation.entity === "meal-plan") {
+      if (mutation.operation === "upsert") {
+        await offlineDb.mealPlans.put(mutation.payload as MealPlanRecord);
+      }
+
+      if (mutation.operation === "delete") {
+        await offlineDb.mealPlans.delete(String(mutation.payload.id));
+      }
+    }
+  }
+}
+
 export async function hydrateLocalSnapshot(snapshot: BootstrapResponse) {
   await offlineDb.transaction(
     "rw",
@@ -68,6 +187,7 @@ export async function bootstrapFromServer() {
 
   const payload = bootstrapResponseSchema.parse(await response.json());
   await hydrateLocalSnapshot(payload);
+  await replayPendingMutations();
   return payload;
 }
 
@@ -157,6 +277,7 @@ export async function flushMutations() {
       async () => {
         await hydrateLocalSnapshot(payload);
         await offlineDb.mutations.bulkDelete(mutations.map((mutation) => mutation.id));
+        await replayPendingMutations(mutations.map((mutation) => mutation.id));
       },
     );
   } finally {
