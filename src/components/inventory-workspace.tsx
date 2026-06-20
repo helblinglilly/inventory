@@ -49,7 +49,9 @@ export function InventoryWorkspace() {
     (entry) => entry.listId === activeShoppingList?.id,
   );
   const todayDateKey = toDateKey(new Date());
-  const lowStockItems = sortLowStockItems(items.filter((item) => item.actualStock < item.desiredStock));
+  const lowStockItems = sortLowStockItems(
+    items.filter((item) => item.actualStock < item.desiredStock),
+  );
   const todayPlan = getDinnerPlanForDate(mealPlans, todayDateKey);
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
   const futurePlannedRecipeIds = new Set(
@@ -79,10 +81,12 @@ export function InventoryWorkspace() {
     }));
   const combinedEntries: ShoppingViewEntry[] = [
     ...activeEntries.map((entry) => {
-      const item = entry.itemId ? items.find((candidate) => candidate.id === entry.itemId) ?? null : null;
+      const item = entry.itemId
+        ? (items.find((candidate) => candidate.id === entry.itemId) ?? null)
+        : null;
       const recipe =
         entry.recipeId && futurePlannedRecipeIds.has(entry.recipeId)
-          ? recipes.find((candidate) => candidate.id === entry.recipeId) ?? null
+          ? (recipes.find((candidate) => candidate.id === entry.recipeId) ?? null)
           : null;
 
       return {
@@ -104,8 +108,6 @@ export function InventoryWorkspace() {
     ...derivedLowStockEntries,
   ];
   const groupedEntries = groupEntriesByPlace(combinedEntries);
-  const lowStockCount = lowStockItems.length;
-  const openEntryCount = combinedEntries.filter((entry) => !entry.checkedAt).length;
 
   async function toggleEntryChecked(entry: ShoppingViewEntry, checked: boolean) {
     if (!activeShoppingList) {
@@ -113,10 +115,9 @@ export function InventoryWorkspace() {
     }
 
     const timestamp = getTimestamp();
-    const persistedEntry =
-      entry.entryId
-        ? shoppingListEntries.find((candidate) => candidate.id === entry.entryId) ?? null
-        : null;
+    const persistedEntry = entry.entryId
+      ? (shoppingListEntries.find((candidate) => candidate.id === entry.entryId) ?? null)
+      : null;
     const nextEntry = persistedEntry
       ? {
           ...persistedEntry,
@@ -255,63 +256,10 @@ export function InventoryWorkspace() {
   return (
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
-              Home
-            </p>
-            <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-              Three jobs, three quick paths
-            </h2>
-            <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-              Shopping lists, meal planning, and stock tracking each get their own clear route.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full bg-[color:var(--color-panel-muted)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
-            <ShoppingBasket className="size-4 text-[color:var(--color-forest)]" />
-            {openEntryCount} to buy
-          </div>
-        </div>
-
-        <div className="mt-5 grid gap-4 lg:grid-cols-3">
-          <FlowCard
-            eyebrow="Create shopping lists"
-            title="Build and work the current list"
-            description="Add low-stock items, add recipe ingredients, then roll straight into the next list."
-            metric={`${openEntryCount} open items`}
-            href="/app"
-            cta="Open shopping list"
-            icon={ShoppingBasket}
-          />
-          <FlowCard
-            eyebrow="Plan meals"
-            title={todayRecipe?.name ?? "Plan the next meal"}
-            description={
-              todayRecipe
-                ? "Today is already planned. Open the planner to adjust the week or add notes."
-                : "Choose meals by day, then kick the ingredients onto the shopping list."
-            }
-            metric={todayRecipe ? "Today planned" : "Nothing set for today"}
-            href="/app/planner"
-            cta="Open planner"
-            icon={ChefHat}
-          />
-          <FlowCard
-            eyebrow="Track stock"
-            title="Review what needs topping up"
-            description="Check stock levels, open an item, or add new products into the right place."
-            metric={`${lowStockCount} low-stock item${lowStockCount === 1 ? "" : "s"}`}
-            href="/app/items"
-            cta="Review stock"
-            icon={PackageSearch}
-          />
-        </div>
-
         <div className="mt-5 flex flex-wrap gap-3">
-          <NavButton href="/app/add" label="Add item" icon={PackagePlus} />
+          <NavButton href="/app/add" label="Track new item" icon={PackagePlus} />
           <NavButton href="/app/recipes" label="Recipes" />
           <NavButton href="/app/rooms" label="Rooms" />
-          <NavButton href="/app/places" label="Places" />
         </div>
       </section>
 
@@ -326,21 +274,21 @@ export function InventoryWorkspace() {
             </h2>
             <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
               {todayRecipe
-                ? todayPlan?.notes ?? "Open the planner if you want to swap or add notes."
+                ? (todayPlan?.notes ?? "Open the planner if you want to swap or add notes.")
                 : "Plan something for today from the recipe page or planner."}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <NavButton href="/app/planner" label="Meal Calendar" />
             {todayRecipe ? (
               <Link
-                href="/app/recipes"
+                href={`/app/recipes/${todayRecipe.id}`}
                 className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
               >
                 <ChefHat className="size-4" />
-                View recipe
+                View meal
               </Link>
             ) : null}
-            <NavButton href="/app/planner" label="Plan meals" />
           </div>
         </div>
       </section>
@@ -348,15 +296,9 @@ export function InventoryWorkspace() {
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
-              Shopping list
-            </p>
             <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-              Buy these next
+              Shopping List
             </h2>
-            <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-              One list, grouped by where each item lives, with low-stock top-ups folded in.
-            </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
@@ -373,7 +315,7 @@ export function InventoryWorkspace() {
               className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
             >
               <ListRestart className="size-4" />
-              New list
+              Complete shopping trip
             </button>
           </div>
         </div>
@@ -424,8 +366,8 @@ function ShoppingSection({
 
       {derivedCount > 0 ? (
         <div className="mt-4 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
-          {derivedCount} low-stock item{derivedCount === 1 ? "" : "s"} are already shown here
-          even if they haven&apos;t been manually saved to the list yet.
+          {derivedCount} low-stock item{derivedCount === 1 ? "" : "s"} are already shown here even
+          if they haven&apos;t been manually saved to the list yet.
         </div>
       ) : null}
 
@@ -436,7 +378,10 @@ function ShoppingSection({
           </div>
         ) : (
           groupedEntries.map((group) => (
-            <div key={group.placeLabel} className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3">
+            <div
+              key={group.placeLabel}
+              className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3"
+            >
               <div className="flex items-center justify-between gap-3 px-1 pb-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
@@ -467,9 +412,7 @@ function ShoppingSection({
                       <input
                         type="checkbox"
                         checked={Boolean(entry.checkedAt)}
-                        onChange={(event) =>
-                          void onToggleEntryChecked(entry, event.target.checked)
-                        }
+                        onChange={(event) => void onToggleEntryChecked(entry, event.target.checked)}
                         className="mt-1 size-5 rounded border-black/20"
                       />
                       <div className="min-w-0 flex-1">
@@ -532,7 +475,7 @@ function ShoppingSection({
 type ShoppingViewEntry = {
   id: string;
   entryId: string | null;
-  item: (ReturnType<typeof useInventoryData>["items"])[number] | null;
+  item: ReturnType<typeof useInventoryData>["items"][number] | null;
   itemId: string | null;
   recipeId: string | null;
   label: string;

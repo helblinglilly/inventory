@@ -19,14 +19,10 @@ export default async function AppLayout({
               href="/app"
               className="block rounded-[1.5rem] outline-none transition hover:opacity-80 focus-visible:ring-2 focus-visible:ring-[color:var(--color-forest)]"
             >
-              <p className="text-xs uppercase tracking-[0.24em] text-[color:var(--color-ink-soft)]">
-                Bare-bones build
-              </p>
               <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[color:var(--color-ink)]">
-                Inventory workspace
+                Home Inventory
               </h1>
             </Link>
-            <SignOutButton />
           </div>
           <SyncProgressBar />
         </div>

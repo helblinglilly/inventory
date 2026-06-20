@@ -23,7 +23,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
     notes: "",
     pricePaid: "",
     isStaple: false,
-    trackPriceHistory: false,
+    trackPriceHistory: true,
   });
   const [itemImage, setItemImage] = useState<File | null>(null);
   const [uploadState, setUploadState] = useState<string | null>(null);
@@ -86,7 +86,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
       notes: "",
       pricePaid: "",
       isStaple: false,
-      trackPriceHistory: false,
+      trackPriceHistory: true,
     });
     setItemImage(null);
     setUploadState(null);
@@ -103,12 +103,8 @@ export function AddItemPage({ userId }: AddItemPageProps) {
   return (
     <section className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
       <div className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
-        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">
-          Add
-        </p>
-        <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
-          Add new item
-        </h2>
+        <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--color-ink-soft)]">Add</p>
+        <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">Add new item</h2>
 
         <div className="mt-5 space-y-5">
           <Field label="Room">
@@ -128,9 +124,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
               items={availablePlaces}
               selectedId={selectedPlaceId}
               emptyLabel={
-                selectedRoomId
-                  ? "This room has no places yet."
-                  : "Pick a room to see its places."
+                selectedRoomId ? "This room has no places yet." : "Pick a room to see its places."
               }
               onSelect={setSelectedPlaceId}
             />
@@ -192,19 +186,9 @@ export function AddItemPage({ userId }: AddItemPageProps) {
           <div className="grid gap-3 md:grid-cols-2">
             <ToggleCard
               title="Kitchen staple"
-              description="Useful for cupboard basics you may add to lists manually."
+              description="Tick if this item should not be pulled into the shopping list via the Meal Planner, but only when stock levels are low."
               checked={itemDraft.isStaple}
-              onChange={(checked) =>
-                setItemDraft((current) => ({ ...current, isStaple: checked }))
-              }
-            />
-            <ToggleCard
-              title="Track price history"
-              description="Mark this for recipe-linked items where price changes matter."
-              checked={itemDraft.trackPriceHistory}
-              onChange={(checked) =>
-                setItemDraft((current) => ({ ...current, trackPriceHistory: checked }))
-              }
+              onChange={(checked) => setItemDraft((current) => ({ ...current, isStaple: checked }))}
             />
           </div>
         </div>
@@ -285,13 +269,7 @@ function ToggleCard({
   );
 }
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="block space-y-2">
       <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
