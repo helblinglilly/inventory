@@ -121,12 +121,27 @@ export function getRecipeCostPence(
     .filter((ingredient) => ingredient.recipeId === recipe.id && ingredient.includeInCost)
     .reduce((total, ingredient) => {
       const item = items.find((entry) => entry.id === ingredient.itemId);
-      if (!item?.pricePaidPence) {
-        return total;
-      }
-
-      return total + item.pricePaidPence * ingredient.quantity;
+      return total + getRecipeIngredientCostPence(ingredient, item ?? null);
     }, 0);
+}
+
+export function getRecipeIngredientCostPence(
+  ingredient: RecipeIngredientRecord,
+  item: ItemRecord | null,
+) {
+  if (!ingredient.includeInCost) {
+    return 0;
+  }
+
+  if (ingredient.costPenceOverride != null) {
+    return ingredient.costPenceOverride;
+  }
+
+  if (!item?.pricePaidPence) {
+    return 0;
+  }
+
+  return item.pricePaidPence * ingredient.quantity;
 }
 
 export function getDinnerPlanForDate(mealPlans: MealPlanRecord[], plannedFor: string) {

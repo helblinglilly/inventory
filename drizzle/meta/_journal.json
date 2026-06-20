@@ -29,6 +29,13 @@
       "when": 1781980000000,
       "tag": "0003_parallel_lockjaw",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781983600000,
+      "tag": "0004_spotless_molecule_man",
+      "breakpoints": true
     }
   ]
 }

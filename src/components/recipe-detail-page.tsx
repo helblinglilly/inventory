@@ -22,6 +22,7 @@ import {
   buildMutation,
   getActiveShoppingList,
   getId,
+  getRecipeIngredientCostPence,
   getRecipeCostPence,
   getTimestamp,
 } from "@/features/inventory/helpers";
@@ -34,7 +35,7 @@ import type {
   RoomRecord,
   ShoppingListEntryRecord,
 } from "@/features/inventory/types";
-import { formatCurrencyFromPence } from "@/lib/utils";
+import { formatCurrencyFromPence, penceToPoundsInput, poundsToPence } from "@/lib/utils";
 
 type RecipeDetailPageProps = {
   recipeId: string;
@@ -151,7 +152,8 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
       itemId: item.id,
       quantity: 1,
       unitLabel: null,
-      includeInCost: !item.isStaple,
+      costPenceOverride: null,
+      includeInCost: true,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -220,7 +222,8 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
       itemId: item.id,
       quantity: 1,
       unitLabel: null,
-      includeInCost: !item.isStaple,
+      costPenceOverride: null,
+      includeInCost: true,
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -425,6 +428,12 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                         {item.isStaple ? "Staple" : "Tracked item"}
                         {item.trackPriceHistory ? " · price-tracked" : ""}
                       </p>
+                      <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+                        Current cost:{" "}
+                        {formatCurrencyFromPence(getRecipeIngredientCostPence(ingredient, item)) ??
+                          "Not costed"}
+                        {ingredient.costPenceOverride != null ? " · custom override" : ""}
+                      </p>
                     </div>
                     <button
                       type="button"
@@ -436,7 +445,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                     </button>
                   </div>
 
-                  <div className="mt-4 grid gap-3 md:grid-cols-[8rem_minmax(0,1fr)_auto]">
+                  <div className="mt-4 grid gap-3 md:grid-cols-[8rem_minmax(0,1fr)] xl:grid-cols-[8rem_minmax(0,1fr)_12rem_auto]">
                     <label className="space-y-2">
                       <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
                         Quantity
@@ -466,6 +475,26 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                           })
                         }
                         placeholder="packs"
+                        className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                      />
+                    </label>
+
+                    <label className="space-y-2 xl:col-span-1">
+                      <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+                        Cost override (GBP)
+                      </span>
+                      <input
+                        value={penceToPoundsInput(ingredient.costPenceOverride)}
+                        onChange={(event) =>
+                          void updateIngredient(ingredient, {
+                            costPenceOverride:
+                              event.target.value.trim() === ""
+                                ? null
+                                : poundsToPence(event.target.value),
+                          })
+                        }
+                        placeholder="0.40"
+                        inputMode="decimal"
                         className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
                       />
                     </label>

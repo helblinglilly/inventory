@@ -192,6 +192,7 @@ export const recipeIngredients = sqliteTable(
       .references(() => items.id, { onDelete: "cascade" }),
     quantity: integer("quantity").notNull().default(1),
     unitLabel: text("unit_label"),
+    costPenceOverride: integer("cost_pence_override"),
     includeInCost: integer("include_in_cost", { mode: "boolean" })
       .notNull()
       .default(true),

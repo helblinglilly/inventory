@@ -80,6 +80,7 @@ export const recipeIngredientSchema = z.object({
   itemId: z.string(),
   quantity: z.number().int().positive().default(1),
   unitLabel: z.string().nullable().optional(),
+  costPenceOverride: z.number().int().nonnegative().nullable().optional(),
   includeInCost: z.boolean().default(true),
   createdAt: z.number(),
   updatedAt: z.number(),
