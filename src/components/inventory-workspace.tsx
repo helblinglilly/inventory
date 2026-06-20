@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { startTransition } from "react";
-import {
-  CheckSquare,
-  ChefHat,
-  ListRestart,
-  Loader2,
-  PackagePlus,
-} from "lucide-react";
+import { CheckSquare, ChefHat, ListRestart, Loader2, Minus, PackagePlus, Plus } from "lucide-react";
 import {
   buildMutation,
   getActiveShoppingList,
@@ -21,6 +15,7 @@ import {
   toDateKey,
 } from "@/features/inventory/helpers";
 import {
+  applyItemLocally,
   applyShoppingListEntryLocally,
   applyShoppingListLocally,
   enqueueMutation,
@@ -104,7 +99,35 @@ export function InventoryWorkspace() {
     }),
     ...derivedLowStockEntries,
   ];
+  const itemEntryCounts = getItemEntryCounts(combinedEntries);
   const groupedEntries = groupEntriesByPlace(combinedEntries);
+
+  async function adjustItemStock(
+    item: NonNullable<ShoppingViewEntry["item"]>,
+    delta: number,
+    options?: { syncAfter?: boolean },
+  ) {
+    const timestamp = getTimestamp();
+    const nextItem = {
+      ...item,
+      actualStock: Math.max(item.actualStock + delta, 0),
+      updatedAt: timestamp,
+    };
+
+    await applyItemLocally(nextItem);
+    await enqueueMutation(
+      buildMutation(
+        "item",
+        "adjust-stock",
+        { id: item.id, delta, updatedAt: timestamp },
+        timestamp,
+      ),
+    );
+
+    if (options?.syncAfter !== false && navigator.onLine) {
+      await syncNow();
+    }
+  }
 
   async function toggleEntryChecked(entry: ShoppingViewEntry, checked: boolean) {
     if (!activeShoppingList) {
@@ -144,6 +167,12 @@ export function InventoryWorkspace() {
 
     await applyShoppingListEntryLocally(nextEntry);
     await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
+
+    if (entry.item && checked !== Boolean(entry.checkedAt)) {
+      await adjustItemStock(entry.item, checked ? entry.quantity : -entry.quantity, {
+        syncAfter: false,
+      });
+    }
 
     if (navigator.onLine) {
       await syncNow();
@@ -287,7 +316,8 @@ export function InventoryWorkspace() {
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
         <div className="flex flex-wrap gap-3">
           <NavButton href="/app/add" label="Track new item" icon={PackagePlus} />
-          <NavButton href="/app/rooms" label="Rooms" />
+          <NavButton href="/app/items" label="View inventory" />
+          <NavButton href="/app/places" label="Places" />
         </div>
       </section>
 
@@ -298,32 +328,34 @@ export function InventoryWorkspace() {
               Shopping List
             </h2>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => startTransition(() => void addLowStockItems())}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
-            >
-              <CheckSquare className="size-4" />
-              Save low stock items
-            </button>
-            <button
-              type="button"
-              onClick={() => startTransition(() => void createNewList())}
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
-            >
-              <ListRestart className="size-4" />
-              Complete shopping trip
-            </button>
-          </div>
         </div>
 
         <div className="mt-5">
           <ShoppingSection
             groupedEntries={groupedEntries}
-            derivedCount={derivedLowStockEntries.length}
+            itemEntryCounts={itemEntryCounts}
             onToggleEntryChecked={toggleEntryChecked}
+            onAdjustItemStock={adjustItemStock}
           />
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => startTransition(() => void addLowStockItems())}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+          >
+            <CheckSquare className="size-4" />
+            Save low stock items
+          </button>
+          <button
+            type="button"
+            onClick={() => startTransition(() => void createNewList())}
+            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+          >
+            <ListRestart className="size-4" />
+            Complete shopping trip
+          </button>
         </div>
       </section>
     </div>
@@ -332,25 +364,20 @@ export function InventoryWorkspace() {
 
 function ShoppingSection({
   groupedEntries,
-  derivedCount,
+  itemEntryCounts,
   onToggleEntryChecked,
+  onAdjustItemStock,
 }: {
   groupedEntries: Array<{
     placeLabel: string;
     entries: ShoppingViewEntry[];
   }>;
-  derivedCount: number;
+  itemEntryCounts: Map<string, number>;
   onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
+  onAdjustItemStock: (item: NonNullable<ShoppingViewEntry["item"]>, delta: number) => Promise<void>;
 }) {
   return (
     <>
-      {derivedCount > 0 ? (
-        <div className="mt-4 rounded-[1.25rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
-          {derivedCount} low-stock item{derivedCount === 1 ? "" : "s"} are already shown here even
-          if they haven&apos;t been manually saved to the list yet.
-        </div>
-      ) : null}
-
       <div className="mt-4 space-y-3">
         {groupedEntries.length === 0 ? (
           <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-white/70 px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
@@ -374,75 +401,108 @@ function ShoppingSection({
               </div>
 
               <div className="space-y-3">
-                {group.entries.map((entry) => (
-                  <article
-                    key={entry.id}
-                    className={cn(
-                      "rounded-[1.25rem] border px-4 py-4 transition",
-                      entry.checkedAt
-                        ? "border-black/5 bg-white/70 opacity-70"
-                        : entry.sourceType === "recipe"
-                          ? "border-[color:var(--color-forest)]/20 bg-[color:var(--color-forest)]/5"
-                          : entry.sourceType === "manual"
-                            ? "border-sky-200 bg-sky-50/80"
-                            : "border-amber-200 bg-amber-50/80",
-                    )}
-                  >
-                    <label className="flex items-start gap-4">
-                      <input
-                        type="checkbox"
-                        checked={Boolean(entry.checkedAt)}
-                        onChange={(event) => void onToggleEntryChecked(entry, event.target.checked)}
-                        className="mt-1 size-5 rounded border-black/20"
-                      />
-                      <div className="min-w-0 flex-1">
-                        {entry.item ? (
-                          <Link
-                            href={`/app/items/${entry.item.id}`}
-                            className="text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline"
+                {group.entries.map((entry) => {
+                  const itemEntryCount = entry.itemId
+                    ? (itemEntryCounts.get(entry.itemId) ?? 0)
+                    : 0;
+                  const showCheckbox = !entry.itemId || itemEntryCount <= 1;
+                  const isChecked = Boolean(entry.checkedAt);
+
+                  return (
+                    <article
+                      key={entry.id}
+                      className={cn(
+                        "rounded-[1.25rem] border px-4 py-4 transition",
+                        isChecked
+                          ? "border-black/5 bg-white/70 opacity-70"
+                          : entry.sourceType === "recipe"
+                            ? "border-[color:var(--color-forest)]/20 bg-[color:var(--color-forest)]/5"
+                            : entry.sourceType === "manual"
+                              ? "border-sky-200 bg-sky-50/80"
+                              : "border-amber-200 bg-amber-50/80",
+                      )}
+                    >
+                      <div className="flex items-start gap-4">
+                        {showCheckbox ? (
+                          <input
+                            type="checkbox"
+                            checked={Boolean(entry.checkedAt)}
+                            onChange={(event) =>
+                              void onToggleEntryChecked(entry, event.target.checked)
+                            }
+                            className="mt-1 size-5 rounded border-black/20"
+                          />
+                        ) : null}
+                        <div className="min-w-0 flex-1">
+                          {entry.item ? (
+                            <Link
+                              href={`/app/items/${entry.item.id}`}
+                              className={cn(
+                                "text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline",
+                                isChecked && "line-through decoration-2 opacity-70",
+                              )}
+                            >
+                              {entry.label}
+                            </Link>
+                          ) : (
+                            <h3
+                              className={cn(
+                                "text-base font-semibold text-[color:var(--color-ink)]",
+                                isChecked && "line-through decoration-2 opacity-70",
+                              )}
+                            >
+                              {entry.label}
+                            </h3>
+                          )}
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {entry.sourceType === "manual" ? (
+                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                                Manual item
+                              </span>
+                            ) : null}
+                            {entry.plannedRecipeName ? (
+                              <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
+                                {entry.plannedRecipeName}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p
+                            className={cn(
+                              "mt-2 text-sm text-[color:var(--color-ink-soft)]",
+                              isChecked && "line-through decoration-2 opacity-70",
+                            )}
                           >
-                            {entry.label}
-                          </Link>
-                        ) : (
-                          <h3 className="text-base font-semibold text-[color:var(--color-ink)]">
-                            {entry.label}
-                          </h3>
-                        )}
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {entry.sourceType === "manual" ? (
-                            <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                              Manual item
-                            </span>
-                          ) : null}
-                          {entry.plannedRecipeName ? (
-                            <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
-                              {entry.plannedRecipeName}
-                            </span>
-                          ) : null}
+                            {entry.quantity} {entry.unitLabel ?? "x"}
+                            {entry.item
+                              ? ` · ${entry.item.actualStock}/${entry.item.desiredStock} in stock`
+                              : ""}
+                          </p>
                         </div>
-                        <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-                          {entry.quantity} {entry.unitLabel ?? "x"}
-                        </p>
+                        {entry.item ? (
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void onAdjustItemStock(entry.item!, -1)}
+                              disabled={entry.item.actualStock <= 0}
+                              aria-label={`Remove one ${entry.label} from stock`}
+                              className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                              <Minus className="size-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void onAdjustItemStock(entry.item!, 1)}
+                              aria-label={`Add one ${entry.label} to stock`}
+                              className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
-                      <span
-                        className={cn(
-                          "rounded-full px-3 py-1 text-xs font-semibold",
-                          entry.checkedAt
-                            ? "bg-[color:var(--color-forest)] text-white"
-                            : entry.item?.actualStock && entry.item.actualStock > 0
-                              ? "bg-amber-500 text-white"
-                              : "bg-red-600 text-white",
-                        )}
-                      >
-                        {entry.checkedAt
-                          ? "Done"
-                          : entry.item?.actualStock && entry.item.actualStock > 0
-                            ? "Low"
-                            : "Out"}
-                      </span>
-                    </label>
-                  </article>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             </div>
           ))
@@ -467,6 +527,20 @@ type ShoppingViewEntry = {
   placeLabel: string;
   plannedRecipeName: string | null;
 };
+
+function getItemEntryCounts(entries: ShoppingViewEntry[]) {
+  const counts = new Map<string, number>();
+
+  for (const entry of entries) {
+    if (!entry.itemId) {
+      continue;
+    }
+
+    counts.set(entry.itemId, (counts.get(entry.itemId) ?? 0) + 1);
+  }
+
+  return counts;
+}
 
 function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
   const groups = new Map<string, ShoppingViewEntry[]>();
