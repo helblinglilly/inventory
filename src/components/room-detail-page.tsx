@@ -18,6 +18,7 @@ import {
   getId,
   getTimestamp,
   ROOM_LEVEL_PLACE_NAME,
+  itemHasPlace,
 } from "@/features/inventory/helpers";
 import {
   applyItemLocally,
@@ -70,9 +71,11 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
   const visiblePlaces = roomPlaces.filter((place) => place.id !== roomLevelPlace?.id);
   const visiblePlaceIds = new Set(visiblePlaces.map((place) => place.id));
   const roomLevelItems = roomLevelPlace
-    ? items.filter((item) => item.placeId === roomLevelPlace.id)
+    ? items.filter((item) => itemHasPlace(item, roomLevelPlace.id))
     : [];
-  const visiblePlaceItemCount = items.filter((item) => visiblePlaceIds.has(item.placeId)).length;
+  const visiblePlaceItemCount = items.filter((item) =>
+    [...visiblePlaceIds].some((placeId) => itemHasPlace(item, placeId)),
+  ).length;
   const canDelete = visiblePlaces.length === 0 && roomLevelItems.length === 0;
   const roomIdValue = currentRoom.id;
 
@@ -127,6 +130,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
     const nextItem: ItemRecord = {
       id: getId(),
       placeId: nextPlace.id,
+      placeIds: [nextPlace.id],
       userId: currentRoom.userId,
       name: itemName.trim(),
       notes: itemNotes.trim() || undefined,
@@ -237,7 +241,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
                 </div>
               ) : (
                 visiblePlaces.map((place) => {
-                  const itemCount = items.filter((item) => item.placeId === place.id).length;
+                  const itemCount = items.filter((item) => itemHasPlace(item, place.id)).length;
 
                   return (
                     <Link

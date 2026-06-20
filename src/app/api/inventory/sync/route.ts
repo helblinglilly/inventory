@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
   items,
+  itemPlaceLinks,
   mealPlans,
   places,
   recipeIngredients,
@@ -130,11 +131,16 @@ export async function POST(request: Request) {
       }
 
       if (mutation.entity === "item" && mutation.operation === "upsert") {
+        const placeIds = Array.isArray(mutation.payload.placeIds)
+          ? mutation.payload.placeIds.map(String)
+          : [String(mutation.payload.placeId)];
+        const primaryPlaceId = placeIds[0] ?? String(mutation.payload.placeId);
+
         await tx
           .insert(items)
           .values({
             id: mutation.payload.id,
-            placeId: mutation.payload.placeId,
+            placeId: primaryPlaceId,
             userId,
             name: mutation.payload.name,
             notes: mutation.payload.notes ?? null,
@@ -151,7 +157,7 @@ export async function POST(request: Request) {
           .onConflictDoUpdate({
             target: items.id,
             set: {
-              placeId: mutation.payload.placeId,
+              placeId: primaryPlaceId,
               name: mutation.payload.name,
               notes: mutation.payload.notes ?? null,
               imageUrl: mutation.payload.imageUrl ?? null,
@@ -164,6 +170,23 @@ export async function POST(request: Request) {
               updatedAt: new Date(mutation.payload.updatedAt),
             },
           });
+
+        await tx
+          .delete(itemPlaceLinks)
+          .where(and(eq(itemPlaceLinks.itemId, String(mutation.payload.id)), eq(itemPlaceLinks.userId, userId)));
+
+        if (placeIds.length > 0) {
+          await tx.insert(itemPlaceLinks).values(
+            placeIds.map((placeId: string) => ({
+              id: getId(),
+              itemId: mutation.payload.id,
+              placeId,
+              userId,
+              createdAt: new Date(mutation.payload.createdAt),
+              updatedAt: new Date(mutation.payload.updatedAt),
+            })),
+          );
+        }
       }
 
       if (mutation.entity === "item" && mutation.operation === "adjust-stock") {
@@ -379,6 +402,7 @@ export async function POST(request: Request) {
     roomRows,
     placeRows,
     itemRows,
+    itemPlaceLinkRows,
     shoppingListRows,
     shoppingListEntryRows,
     recipeRows,
@@ -400,6 +424,11 @@ export async function POST(request: Request) {
       .from(items)
       .where(eq(items.userId, userId))
       .orderBy(asc(items.name)),
+    db
+      .select()
+      .from(itemPlaceLinks)
+      .where(eq(itemPlaceLinks.userId, userId))
+      .orderBy(asc(itemPlaceLinks.createdAt)),
     db
       .select()
       .from(shoppingLists)
@@ -427,6 +456,13 @@ export async function POST(request: Request) {
       .orderBy(asc(mealPlans.plannedFor)),
   ]);
 
+  const itemPlaceIdsByItemId = new Map<string, string[]>();
+  for (const link of itemPlaceLinkRows) {
+    const current = itemPlaceIdsByItemId.get(link.itemId) ?? [];
+    current.push(link.placeId);
+    itemPlaceIdsByItemId.set(link.itemId, current);
+  }
+
   const payload = bootstrapResponseSchema.parse({
     rooms: roomRows.map((room) => ({
       ...room,
@@ -440,6 +476,7 @@ export async function POST(request: Request) {
     })),
     items: itemRows.map((item) => ({
       ...item,
+      placeIds: itemPlaceIdsByItemId.get(item.id) ?? [item.placeId],
       createdAt: item.createdAt.getTime(),
       updatedAt: item.updatedAt.getTime(),
     })),

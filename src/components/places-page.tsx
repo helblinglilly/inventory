@@ -8,7 +8,7 @@ import {
   deletePlaceLocally,
   enqueueMutation,
 } from "@/features/inventory/sync";
-import { buildMutation, getId, getTimestamp } from "@/features/inventory/helpers";
+import { buildMutation, getId, getTimestamp, itemHasPlace } from "@/features/inventory/helpers";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import type { PlaceRecord } from "@/features/inventory/types";
 
@@ -75,7 +75,7 @@ export function PlacesPage({ userId }: PlacesPageProps) {
         <div className="space-y-3 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
           {places.map((place) => {
             const room = rooms.find((entry) => entry.id === place.roomId);
-            const itemCount = items.filter((item) => item.placeId === place.id).length;
+            const itemCount = items.filter((item) => itemHasPlace(item, place.id)).length;
             const canDelete = itemCount === 0;
             return (
               <article

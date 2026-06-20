@@ -11,7 +11,7 @@ import {
   Package,
   Trash2,
 } from "lucide-react";
-import { buildMutation, getTimestamp } from "@/features/inventory/helpers";
+import { buildMutation, getTimestamp, itemHasPlace } from "@/features/inventory/helpers";
 import { deletePlaceLocally, enqueueMutation } from "@/features/inventory/sync";
 import { formatCurrencyFromPence, formatRelativeStock } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -47,7 +47,7 @@ export function PlaceDetailPage({ placeId }: PlaceDetailPageProps) {
   }
 
   const room = rooms.find((entry) => entry.id === place.roomId);
-  const placeItems = items.filter((item) => item.placeId === place.id);
+  const placeItems = items.filter((item) => itemHasPlace(item, place.id));
   const canDelete = placeItems.length === 0;
   const placeIdValue = place.id;
 

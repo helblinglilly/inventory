@@ -22,6 +22,7 @@ export const placeSchema = z.object({
 export const itemSchema = z.object({
   id: z.string(),
   placeId: z.string(),
+  placeIds: z.array(z.string()).default([]),
   userId: z.string(),
   name: z.string().min(1),
   notes: z.string().nullable().optional(),

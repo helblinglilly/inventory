@@ -10,6 +10,7 @@ import {
   buildMutation,
   getActiveShoppingList,
   getId,
+  getItemPlaceIds,
   getLocationLabel,
   getTimestamp,
 } from "@/features/inventory/helpers";
@@ -116,9 +117,11 @@ function ItemEditorForm({
   shoppingListEntries: ShoppingListEntryRecord[];
 }) {
   const router = useRouter();
-  const currentPlace = places.find((entry) => entry.id === item.placeId);
+  const currentPlaceIds = getItemPlaceIds(item);
+  const currentPlace = places.find((entry) => entry.id === currentPlaceIds[0]);
   const [selectedRoomId, setSelectedRoomId] = useState(currentPlace?.roomId ?? rooms[0]?.id ?? "");
-  const [selectedPlaceId, setSelectedPlaceId] = useState(item.placeId);
+  const [selectedPlaceId, setSelectedPlaceId] = useState(currentPlaceIds[0] ?? "");
+  const [linkedPlaceIds, setLinkedPlaceIds] = useState(currentPlaceIds);
   const [name, setName] = useState(item.name);
   const [notes, setNotes] = useState(item.notes ?? "");
   const [desiredStock, setDesiredStock] = useState(item.desiredStock);
@@ -134,11 +137,32 @@ function ItemEditorForm({
   const activePlaceId = availablePlaces.some((place) => place.id === selectedPlaceId)
     ? selectedPlaceId
     : availablePlaces[0]?.id ?? "";
+  const linkedPlaces = places.filter((place) => linkedPlaceIds.includes(place.id));
   const locationLabel = getLocationLabel(item, places, rooms);
   const activeShoppingList = getActiveShoppingList(shoppingLists);
 
-  async function saveItem() {
+  function addLinkedPlace() {
     if (!activePlaceId) {
+      return;
+    }
+
+    setLinkedPlaceIds((current) =>
+      current.includes(activePlaceId) ? current : [...current, activePlaceId],
+    );
+  }
+
+  function removeLinkedPlace(placeId: string) {
+    setLinkedPlaceIds((current) => current.filter((entry) => entry !== placeId));
+  }
+
+  async function saveItem() {
+    const nextPlaceIds = linkedPlaceIds.includes(activePlaceId)
+      ? linkedPlaceIds
+      : activePlaceId
+        ? [...linkedPlaceIds, activePlaceId]
+        : linkedPlaceIds;
+
+    if (nextPlaceIds.length === 0) {
       return;
     }
 
@@ -174,7 +198,8 @@ function ItemEditorForm({
       const timestamp = getTimestamp();
       const nextItem: ItemRecord = {
         ...item,
-        placeId: activePlaceId,
+        placeId: nextPlaceIds[0],
+        placeIds: nextPlaceIds,
         name: name.trim(),
         notes: notes.trim() || undefined,
         desiredStock,
@@ -335,17 +360,66 @@ function ItemEditorForm({
           </Field>
 
           <Field label="Place">
-            <select
-              value={activePlaceId}
-              onChange={(event) => setSelectedPlaceId(event.target.value)}
-              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
-            >
-              {availablePlaces.map((place) => (
-                <option key={place.id} value={place.id}>
-                  {place.name}
-                </option>
-              ))}
-            </select>
+            <div className="space-y-3">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <select
+                  value={activePlaceId}
+                  onChange={(event) => setSelectedPlaceId(event.target.value)}
+                  disabled={availablePlaces.length === 0}
+                  className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                >
+                  {availablePlaces.length === 0 ? (
+                    <option value="">No places in this room</option>
+                  ) : null}
+                  {availablePlaces.map((place) => (
+                    <option key={place.id} value={place.id}>
+                      {place.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={addLinkedPlace}
+                  disabled={!activePlaceId}
+                  className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+                >
+                  Link
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {linkedPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    onClick={() => removeLinkedPlace(place.id)}
+                    className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-2 text-xs font-medium text-[color:var(--color-ink)]"
+                  >
+                    {rooms.find((room) => room.id === place.roomId)?.name ?? "Unknown room"} /{" "}
+                    {place.name} ×
+                  </button>
+                ))}
+                {linkedPlaceIds
+                  .filter((placeId) => !linkedPlaces.some((place) => place.id === placeId))
+                  .map((placeId) => (
+                    <span
+                      key={placeId}
+                      className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-2 text-xs font-medium text-[color:var(--color-ink-soft)]"
+                    >
+                      Missing place link
+                    </span>
+                  ))}
+                {linkedPlaces.length === 0 ? (
+                  <button
+                    type="button"
+                    onClick={addLinkedPlace}
+                    disabled={!activePlaceId}
+                    className="text-sm text-[color:var(--color-ink-soft)]"
+                  >
+                    No linked places yet.
+                  </button>
+                ) : null}
+              </div>
+            </div>
           </Field>
 
           <Field label="Desired stock">

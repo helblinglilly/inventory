@@ -82,6 +82,31 @@ export const items = sqliteTable(
   ],
 );
 
+export const itemPlaceLinks = sqliteTable(
+  "inventory_item_place_link",
+  {
+    id: text("id").primaryKey(),
+    itemId: text("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    placeId: text("place_id")
+      .notNull()
+      .references(() => places.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [
+    index("inventory_item_place_link_item_id_idx").on(table.itemId),
+    index("inventory_item_place_link_place_id_idx").on(table.placeId),
+    index("inventory_item_place_link_user_id_idx").on(table.userId),
+  ],
+);
+
 export const shoppingLists = sqliteTable(
   "shopping_list",
   {
@@ -216,11 +241,24 @@ export const placeRelations = relations(places, ({ one, many }) => ({
     references: [rooms.id],
   }),
   items: many(items),
+  itemPlaceLinks: many(itemPlaceLinks),
 }));
 
-export const itemRelations = relations(items, ({ one }) => ({
+export const itemRelations = relations(items, ({ one, many }) => ({
   place: one(places, {
     fields: [items.placeId],
+    references: [places.id],
+  }),
+  itemPlaceLinks: many(itemPlaceLinks),
+}));
+
+export const itemPlaceLinkRelations = relations(itemPlaceLinks, ({ one }) => ({
+  item: one(items, {
+    fields: [itemPlaceLinks.itemId],
+    references: [items.id],
+  }),
+  place: one(places, {
+    fields: [itemPlaceLinks.placeId],
     references: [places.id],
   }),
 }));

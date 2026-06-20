@@ -63,6 +63,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
     const item: ItemRecord = {
       id: getId(),
       placeId: selectedPlaceId,
+      placeIds: [selectedPlaceId],
       userId,
       name: itemDraft.name.trim(),
       notes: itemDraft.notes.trim() || undefined,

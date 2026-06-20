@@ -8,6 +8,7 @@ import {
   getActiveShoppingList,
   getDinnerPlanForDate,
   getId,
+  getItemPlaces,
   getLocationLabel,
   getShoppingListCarryOverEntries,
   getTimestamp,
@@ -42,6 +43,7 @@ export function InventoryWorkspace() {
   } = useInventoryData();
   const [quickItemName, setQuickItemName] = useState("");
   const [quickItemQuantity, setQuickItemQuantity] = useState("1");
+  const [selectedShoppingRoomId, setSelectedShoppingRoomId] = useState("");
   const [message, setMessage] = useState<string | null>(null);
 
   const activeShoppingList = getActiveShoppingList(shoppingLists);
@@ -54,6 +56,11 @@ export function InventoryWorkspace() {
   );
   const todayPlan = getDinnerPlanForDate(mealPlans, todayDateKey);
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
+  const selectableShoppingRooms = rooms.filter((room) => room.name !== UNCATEGORIZED_ROOM_NAME);
+  const effectiveShoppingRoomId =
+    selectableShoppingRooms.some((room) => room.id === selectedShoppingRoomId)
+      ? selectedShoppingRoomId
+      : selectableShoppingRooms[0]?.id ?? rooms[0]?.id ?? "";
   const futurePlannedRecipeIds = new Set(
     mealPlans.flatMap((mealPlan) =>
       mealPlan.recipeId && mealPlan.plannedFor > todayDateKey ? [mealPlan.recipeId] : [],
@@ -76,7 +83,7 @@ export function InventoryWorkspace() {
       unitLabel: null,
       checkedAt: null,
       isDerived: true,
-      placeLabel: getLocationLabel(item, places, rooms),
+      placeLabel: getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId),
       plannedRecipeName: null,
     }));
   const combinedEntries: ShoppingViewEntry[] = [
@@ -101,7 +108,9 @@ export function InventoryWorkspace() {
         unitLabel: entry.unitLabel ?? null,
         checkedAt: entry.checkedAt ?? null,
         isDerived: false,
-        placeLabel: item ? getLocationLabel(item, places, rooms) : "Unassigned",
+        placeLabel: item
+          ? getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId)
+          : "Unassigned",
         plannedRecipeName: recipe?.name ?? null,
       };
     }),
@@ -344,6 +353,7 @@ export function InventoryWorkspace() {
       item = {
         id: getId(),
         placeId: place.id,
+        placeIds: [place.id],
         userId: activeShoppingList.userId,
         name,
         notes: null,
@@ -462,6 +472,20 @@ export function InventoryWorkspace() {
               Shopping List
             </h2>
           </div>
+          <label className="flex min-w-[15rem] flex-col gap-2 text-sm text-[color:var(--color-ink-soft)]">
+            <span className="text-xs uppercase tracking-[0.18em]">Categorise by room</span>
+            <select
+              value={effectiveShoppingRoomId}
+              onChange={(event) => setSelectedShoppingRoomId(event.target.value)}
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-[color:var(--color-ink)] outline-none focus:border-[color:var(--color-forest)]"
+            >
+              {(selectableShoppingRooms.length > 0 ? selectableShoppingRooms : rooms).map((room) => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
         {message ? (
           <p className="mt-4 rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
@@ -726,6 +750,32 @@ function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
       placeLabel,
       entries: groupedEntries,
     }));
+}
+
+function getShoppingRoomLabel(
+  item: ReturnType<typeof useInventoryData>["items"][number],
+  places: ReturnType<typeof useInventoryData>["places"],
+  rooms: ReturnType<typeof useInventoryData>["rooms"],
+  roomId: string,
+) {
+  if (!roomId) {
+    return getLocationLabel(item, places, rooms);
+  }
+
+  const room = rooms.find((entry) => entry.id === roomId) ?? null;
+  const matchingPlaces = getItemPlaces(item, places).filter((place) => place.roomId === roomId);
+
+  if (matchingPlaces.length === 0) {
+    return room ? `${room.name} / Unassigned` : "Unassigned";
+  }
+
+  const scopedItem = {
+    ...item,
+    placeId: matchingPlaces[0].id,
+    placeIds: matchingPlaces.map((place) => place.id),
+  };
+
+  return getLocationLabel(scopedItem, places, rooms);
 }
 
 function NavButton({

@@ -45,28 +45,50 @@ export function getRoomById(rooms: RoomRecord[], roomId: string) {
   return rooms.find((room) => room.id === roomId) ?? null;
 }
 
+export function getItemPlaceIds(item: ItemRecord) {
+  const placeIds = item.placeIds.length > 0 ? item.placeIds : [item.placeId];
+  return [...new Set(placeIds.filter(Boolean))];
+}
+
+export function getItemPlaces(item: ItemRecord, places: PlaceRecord[]) {
+  const placeIds = new Set(getItemPlaceIds(item));
+  return places.filter((place) => placeIds.has(place.id));
+}
+
+export function itemHasPlace(item: ItemRecord, placeId: string) {
+  return getItemPlaceIds(item).includes(placeId);
+}
+
+function formatPlaceLabel(place: PlaceRecord, rooms: RoomRecord[]) {
+  const room = getRoomById(rooms, place.roomId);
+
+  if (!room) {
+    return place.name;
+  }
+
+  if (place.name === ROOM_LEVEL_PLACE_NAME) {
+    return room.name;
+  }
+
+  if (room.name === UNCATEGORIZED_ROOM_NAME && place.name === UNCATEGORIZED_PLACE_NAME) {
+    return UNCATEGORIZED_ROOM_NAME;
+  }
+
+  return `${room.name} / ${place.name}`;
+}
+
 export function getLocationLabel(
   item: ItemRecord,
   places: PlaceRecord[],
   rooms: RoomRecord[],
+  roomId?: string | null,
 ) {
-  const place = getPlaceById(places, item.placeId);
-  const room = place ? getRoomById(rooms, place.roomId) : null;
+  const itemPlaces = getItemPlaces(item, places);
+  const scopedPlaces = roomId ? itemPlaces.filter((place) => place.roomId === roomId) : itemPlaces;
+  const displayPlaces = scopedPlaces.length > 0 ? scopedPlaces : itemPlaces;
 
-  if (room && place) {
-    if (place.name === ROOM_LEVEL_PLACE_NAME) {
-      return room.name;
-    }
-
-    if (room.name === UNCATEGORIZED_ROOM_NAME && place.name === UNCATEGORIZED_PLACE_NAME) {
-      return UNCATEGORIZED_ROOM_NAME;
-    }
-
-    return `${room.name} / ${place.name}`;
-  }
-
-  if (place) {
-    return place.name;
+  if (displayPlaces.length > 0) {
+    return displayPlaces.map((place) => formatPlaceLabel(place, rooms)).join(" · ");
   }
 
   return "Unknown location";

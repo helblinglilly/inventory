@@ -199,6 +199,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     const item: ItemRecord = {
       id: getId(),
       placeId: effectiveQuickAddPlaceId,
+      placeIds: [effectiveQuickAddPlaceId],
       userId,
       name: quickAddItemName.trim(),
       notes: undefined,

@@ -7,6 +7,7 @@ import { applyShoppingListEntryLocally, enqueueMutation } from "@/features/inven
 import {
   buildMutation,
   getActiveShoppingList,
+  getItemPlaces,
   getId,
   getLocationLabel,
   getTimestamp,
@@ -325,12 +326,12 @@ function isUncategorizedItem(
   places: ReturnType<typeof useInventoryData>["places"],
   rooms: ReturnType<typeof useInventoryData>["rooms"],
 ) {
-  const place = places.find((entry) => entry.id === item.placeId);
-  const room = place ? rooms.find((entry) => entry.id === place.roomId) : null;
-
-  return (
-    place?.name === UNCATEGORIZED_PLACE_NAME && room?.name === UNCATEGORIZED_ROOM_NAME
-  );
+  return getItemPlaces(item, places).some((place) => {
+    const room = rooms.find((entry) => entry.id === place.roomId) ?? null;
+    return (
+      place.name === UNCATEGORIZED_PLACE_NAME && room?.name === UNCATEGORIZED_ROOM_NAME
+    );
+  });
 }
 
 function Loading({ label }: { label: string }) {

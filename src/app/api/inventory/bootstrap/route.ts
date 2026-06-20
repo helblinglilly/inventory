@@ -2,6 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import {
   items,
+  itemPlaceLinks,
   mealPlans,
   places,
   recipeIngredients,
@@ -52,6 +53,7 @@ export async function GET(request: Request) {
     roomRows,
     placeRows,
     itemRows,
+    itemPlaceLinkRows,
     shoppingListRows,
     shoppingListEntryRows,
     recipeRows,
@@ -73,6 +75,11 @@ export async function GET(request: Request) {
       .from(items)
       .where(eq(items.userId, userId))
       .orderBy(asc(items.name)),
+    db
+      .select()
+      .from(itemPlaceLinks)
+      .where(eq(itemPlaceLinks.userId, userId))
+      .orderBy(asc(itemPlaceLinks.createdAt)),
     db
       .select()
       .from(shoppingLists)
@@ -100,6 +107,13 @@ export async function GET(request: Request) {
       .orderBy(asc(mealPlans.plannedFor)),
   ]);
 
+  const itemPlaceIdsByItemId = new Map<string, string[]>();
+  for (const link of itemPlaceLinkRows) {
+    const current = itemPlaceIdsByItemId.get(link.itemId) ?? [];
+    current.push(link.placeId);
+    itemPlaceIdsByItemId.set(link.itemId, current);
+  }
+
   return NextResponse.json({
     rooms: roomRows.map((room) => ({
       ...room,
@@ -113,6 +127,7 @@ export async function GET(request: Request) {
     })),
     items: itemRows.map((item) => ({
       ...item,
+      placeIds: itemPlaceIdsByItemId.get(item.id) ?? [item.placeId],
       createdAt: item.createdAt.getTime(),
       updatedAt: item.updatedAt.getTime(),
     })),

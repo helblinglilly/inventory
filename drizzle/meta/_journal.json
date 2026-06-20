@@ -22,6 +22,13 @@
       "when": 1781911583890,
       "tag": "0002_marvelous_thing",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1781980000000,
+      "tag": "0003_parallel_lockjaw",
+      "breakpoints": true
     }
   ]
 }
