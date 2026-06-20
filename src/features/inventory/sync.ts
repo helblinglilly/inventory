@@ -70,7 +70,14 @@ async function replayPendingMutations(excludedMutationIds: string[] = []) {
       }
 
       if (mutation.operation === "delete") {
-        await offlineDb.items.delete(String(mutation.payload.id));
+        const itemId = String(mutation.payload.id);
+        await offlineDb.items.delete(itemId);
+        await offlineDb.recipeIngredients
+          .filter((ingredient) => ingredient.itemId === itemId)
+          .delete();
+        await offlineDb.shoppingListEntries
+          .filter((entry) => entry.itemId === itemId)
+          .delete();
       }
 
       continue;
@@ -213,6 +220,22 @@ export async function deletePlaceLocally(placeId: string) {
 
 export async function applyItemLocally(item: ItemRecord) {
   await offlineDb.items.put(item);
+}
+
+export async function deleteItemLocally(itemId: string) {
+  await offlineDb.transaction(
+    "rw",
+    [offlineDb.items, offlineDb.recipeIngredients, offlineDb.shoppingListEntries],
+    async () => {
+      await offlineDb.items.delete(itemId);
+      await offlineDb.recipeIngredients
+        .filter((ingredient) => ingredient.itemId === itemId)
+        .delete();
+      await offlineDb.shoppingListEntries
+        .filter((entry) => entry.itemId === itemId)
+        .delete();
+    },
+  );
 }
 
 export async function applyShoppingListLocally(list: ShoppingListRecord) {

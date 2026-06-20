@@ -179,6 +179,22 @@ export async function POST(request: Request) {
           .where(and(eq(items.id, itemId), eq(items.userId, userId)));
       }
 
+      if (mutation.entity === "item" && mutation.operation === "delete") {
+        const itemId = String(mutation.payload.id);
+
+        await tx
+          .delete(shoppingListEntries)
+          .where(and(eq(shoppingListEntries.itemId, itemId), eq(shoppingListEntries.userId, userId)));
+
+        await tx
+          .delete(recipeIngredients)
+          .where(and(eq(recipeIngredients.itemId, itemId), eq(recipeIngredients.userId, userId)));
+
+        await tx
+          .delete(items)
+          .where(and(eq(items.id, itemId), eq(items.userId, userId)));
+      }
+
       if (mutation.entity === "shopping-list" && mutation.operation === "upsert") {
         await tx
           .insert(shoppingLists)

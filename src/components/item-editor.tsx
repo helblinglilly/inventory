@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { ArrowLeft, Loader2, Save, ShoppingBasket, Upload } from "lucide-react";
+import { ArrowLeft, Loader2, Save, ShoppingBasket, Trash2, Upload } from "lucide-react";
 import { offlineDb } from "@/features/inventory/offline-db";
 import {
   buildMutation,
@@ -16,6 +17,7 @@ import {
   applyItemLocally,
   applyShoppingListEntryLocally,
   bootstrapFromServer,
+  deleteItemLocally,
   enqueueMutation,
   flushMutations,
 } from "@/features/inventory/sync";
@@ -113,6 +115,7 @@ function ItemEditorForm({
   shoppingLists: ShoppingListRecord[];
   shoppingListEntries: ShoppingListEntryRecord[];
 }) {
+  const router = useRouter();
   const currentPlace = places.find((entry) => entry.id === item.placeId);
   const [selectedRoomId, setSelectedRoomId] = useState(currentPlace?.roomId ?? rooms[0]?.id ?? "");
   const [selectedPlaceId, setSelectedPlaceId] = useState(item.placeId);
@@ -242,6 +245,26 @@ function ItemEditorForm({
     }
 
     setMessage("Added to shopping list");
+  }
+
+  async function deleteItem() {
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const timestamp = getTimestamp();
+      await deleteItemLocally(item.id);
+      await enqueueMutation(buildMutation("item", "delete", { id: item.id }, timestamp));
+
+      if (navigator.onLine) {
+        await flushMutations();
+      }
+
+      router.push("/app/items");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to delete item");
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -410,6 +433,15 @@ function ItemEditorForm({
           >
             {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
             Save changes
+          </button>
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => void deleteItem()}
+            className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-5 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+          >
+            <Trash2 className="size-4" />
+            Delete item
           </button>
         </div>
       </section>
