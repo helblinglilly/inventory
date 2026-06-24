@@ -23,6 +23,22 @@ import {
 let bootstrapPromise: Promise<BootstrapResponse> | null = null;
 let flushPromise: Promise<void> | null = null;
 
+function getBootstrapResponseFromStore(): BootstrapResponse {
+  const snapshot = getInventoryStoreSnapshot();
+
+  return {
+    rooms: snapshot.rooms,
+    places: snapshot.places,
+    items: snapshot.items,
+    shoppingLists: snapshot.shoppingLists,
+    shoppingListEntries: snapshot.shoppingListEntries,
+    recipes: snapshot.recipes,
+    recipeIngredients: snapshot.recipeIngredients,
+    mealPlans: snapshot.mealPlans,
+    serverTime: Number(snapshot.lastBootstrapAt ?? Date.now()),
+  };
+}
+
 function replaceBootstrapData(snapshot: BootstrapResponse) {
   setInventoryStoreState((currentState) => ({
     ...currentState,
@@ -56,6 +72,12 @@ export async function hydrateLocalSnapshot(snapshot: BootstrapResponse) {
 }
 
 export async function bootstrapFromServer(force = false) {
+  const snapshot = getInventoryStoreSnapshot();
+
+  if (!force && snapshot.lastBootstrapAt !== null && !snapshot.isBootstrapping) {
+    return getBootstrapResponseFromStore();
+  }
+
   if (bootstrapPromise && !force) {
     return bootstrapPromise;
   }
