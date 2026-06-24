@@ -296,6 +296,15 @@ function PlannerSidebar({
   onAddRecipeIngredientsToShoppingList: (recipe: RecipeRecord) => Promise<void>;
 }) {
   const [notes, setNotes] = useState(selectedPlan?.notes ?? "");
+  const [recipeSearch, setRecipeSearch] = useState("");
+  const normalizedRecipeSearch = recipeSearch.trim().toLowerCase();
+  const filteredRecipes = recipes.filter((recipe) => {
+    if (!normalizedRecipeSearch) {
+      return true;
+    }
+
+    return recipe.name.toLowerCase().includes(normalizedRecipeSearch);
+  });
 
   return (
     <aside className="space-y-4 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
@@ -310,12 +319,26 @@ function PlannerSidebar({
       </div>
 
       <div className="space-y-3">
+        {recipes.length > 0 ? (
+          <div className="space-y-2">
+            <span className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+              Search recipes
+            </span>
+            <input
+              value={recipeSearch}
+              onChange={(event) => setRecipeSearch(event.target.value)}
+              placeholder="Search meals"
+              className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+            />
+          </div>
+        ) : null}
+
         {recipes.length === 0 ? (
           <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
             Add some recipes first.
           </div>
         ) : (
-          recipes.map((recipe) => {
+          filteredRecipes.map((recipe) => {
             const isSelectedRecipe = recipe.id === selectedRecipe?.id;
             const mealCost = formatCurrencyFromPence(
               getRecipeCostPence(recipe, recipeIngredients, items),
@@ -340,6 +363,11 @@ function PlannerSidebar({
             );
           })
         )}
+        {recipes.length > 0 && filteredRecipes.length === 0 ? (
+          <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
+            No recipes match that search.
+          </div>
+        ) : null}
       </div>
 
       <label className="block space-y-2">
