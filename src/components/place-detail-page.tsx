@@ -56,9 +56,7 @@ export function PlaceDetailPage({ placeId }: PlaceDetailPageProps) {
     await deletePlaceLocally(placeIdValue);
     await enqueueMutation(buildMutation("place", "delete", { id: placeIdValue }, timestamp));
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
 
     router.push("/app/places");
   }

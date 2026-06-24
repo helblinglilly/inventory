@@ -39,9 +39,7 @@ export function RoomsPage({ userId }: RoomsPageProps) {
     await enqueueMutation(buildMutation("room", "upsert", room, timestamp));
     setRoomName("");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function removeRoom(roomId: string) {
@@ -49,9 +47,7 @@ export function RoomsPage({ userId }: RoomsPageProps) {
     await deleteRoomLocally(roomId);
     await enqueueMutation(buildMutation("room", "delete", { id: roomId }, timestamp));
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   if (isBootstrapping) {

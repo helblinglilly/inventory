@@ -92,9 +92,7 @@ export function ItemsPage() {
     await applyShoppingListEntryLocally(nextEntry);
     await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
 
     setMessage(`${item.name} added to the shopping list`);
   }

@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { SyncProgressBar } from "@/components/sync-progress-bar";
-import { SignOutButton } from "@/components/sign-out-button";
 import { requireServerSession } from "@/lib/session";
 
 export default async function AppLayout({
@@ -24,7 +22,6 @@ export default async function AppLayout({
               </h1>
             </Link>
           </div>
-          <SyncProgressBar />
         </div>
       </header>
 

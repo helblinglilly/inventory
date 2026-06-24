@@ -28,9 +28,9 @@ export default async function AuthPage() {
           </h1>
           <p className="mt-4 max-w-lg text-base leading-7 text-[color:var(--color-ink-soft)]">
             The inventory shell is already wired for rooms, places, item stock,
-            image uploads, and offline mutation syncing. Once the live Turso and
-            Vercel credentials are added, this should move from local fallback to
-            hosted mode cleanly.
+            image uploads, and direct server-backed updates. Once the live Turso
+            and Vercel credentials are added, this should move from local fallback
+            to hosted mode cleanly.
           </p>
         </section>
 

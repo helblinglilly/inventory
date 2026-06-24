@@ -92,9 +92,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
     setItemImage(null);
     setUploadState(null);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   if (isBootstrapping) {

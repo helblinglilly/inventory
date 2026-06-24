@@ -1,15 +1,14 @@
 # Inventory
 
-Bare-bones local-first home inventory app built with Next.js, TypeScript, Tailwind, Turso, Drizzle, Better Auth, Vercel Blob, and IndexedDB.
+Bare-bones home inventory app built with Next.js, TypeScript, Tailwind, Turso, Drizzle, Better Auth, and Vercel Blob.
 
 ## What is in place
 
 - Email/password authentication wired through Better Auth.
 - Turso-ready Drizzle schema for auth, rooms, places, and items.
-- Local-first client cache using Dexie/IndexedDB plus a mutation queue.
+- Server-backed inventory reads and writes with immediate refresh after changes.
 - Room and place navigation, search, low-stock dashboard, and quick stock +/- actions.
 - Optional image upload route prepared for Vercel Blob and an external image proxy.
-- PWA manifest and service worker generation via `@ducanh2912/next-pwa`.
 
 ## Environment
 
@@ -67,5 +66,5 @@ Notes:
 
 - Wire real Vercel and Turso credentials.
 - Decide the final `img.helbling.uk` URL contract if it should be something other than `?url=`.
-- Add stronger conflict resolution for concurrent offline edits.
+- Add stronger conflict handling for concurrent edits from multiple sessions.
 - Add edit/delete flows, shopping views, and richer image handling.

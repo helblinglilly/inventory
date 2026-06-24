@@ -126,9 +126,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     await enqueueMutation(buildMutation("recipe", "upsert", nextRecipe, timestamp));
     setMessage("Recipe saved");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function linkItemToRecipe(
@@ -162,7 +160,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     await enqueueMutation(buildMutation("recipe-ingredient", "upsert", ingredient, timestamp));
     setMessage(options?.message ?? `${item.name} added to ${currentRecipe.name}`);
 
-    if (options?.syncAfter !== false && navigator.onLine) {
+    if (options?.syncAfter !== false) {
       await syncNow();
     }
   }
@@ -237,9 +235,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     setQuickAddIsStaple(false);
     setMessage(`${item.name} created and linked to ${currentRecipe.name}`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function updateIngredient(
@@ -258,9 +254,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
       buildMutation("recipe-ingredient", "upsert", nextIngredient, timestamp),
     );
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function removeIngredient(ingredientId: string) {
@@ -271,9 +265,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     );
     setMessage("Ingredient removed");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function addRecipeToShoppingList() {
@@ -325,9 +317,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
 
     setMessage(`Added ingredients for ${currentRecipe.name} to the shopping list`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   return (

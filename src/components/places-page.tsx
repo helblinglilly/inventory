@@ -41,9 +41,7 @@ export function PlacesPage({ userId }: PlacesPageProps) {
     await enqueueMutation(buildMutation("place", "upsert", place, timestamp));
     setPlaceName("");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function removePlace(placeId: string) {
@@ -51,9 +49,7 @@ export function PlacesPage({ userId }: PlacesPageProps) {
     await deletePlaceLocally(placeId);
     await enqueueMutation(buildMutation("place", "delete", { id: placeId }, timestamp));
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   if (isBootstrapping) {

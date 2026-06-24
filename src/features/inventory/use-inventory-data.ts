@@ -1,115 +1,31 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useState } from "react";
-import { offlineDb } from "@/features/inventory/offline-db";
+import { useEffect, useSyncExternalStore } from "react";
+import {
+  getInventoryStoreSnapshot,
+  subscribeToInventoryStore,
+} from "@/features/inventory/store";
 import { bootstrapFromServer, flushMutations } from "@/features/inventory/sync";
 
 export function useInventoryData() {
-  const rooms = useLiveQuery(() => offlineDb.rooms.orderBy("sortOrder").toArray(), [], []);
-  const places = useLiveQuery(
-    () => offlineDb.places.orderBy("sortOrder").toArray(),
-    [],
-    [],
+  const state = useSyncExternalStore(
+    subscribeToInventoryStore,
+    getInventoryStoreSnapshot,
+    getInventoryStoreSnapshot,
   );
-  const items = useLiveQuery(() => offlineDb.items.orderBy("name").toArray(), [], []);
-  const shoppingLists = useLiveQuery(
-    () => offlineDb.shoppingLists.orderBy("createdAt").toArray(),
-    [],
-    [],
-  );
-  const shoppingListEntries = useLiveQuery(
-    () => offlineDb.shoppingListEntries.orderBy("createdAt").toArray(),
-    [],
-    [],
-  );
-  const recipes = useLiveQuery(() => offlineDb.recipes.orderBy("name").toArray(), [], []);
-  const recipeIngredients = useLiveQuery(
-    () => offlineDb.recipeIngredients.orderBy("createdAt").toArray(),
-    [],
-    [],
-  );
-  const mealPlans = useLiveQuery(
-    () => offlineDb.mealPlans.orderBy("plannedFor").toArray(),
-    [],
-    [],
-  );
-  const pendingMutations = useLiveQuery(
-    () => offlineDb.mutations.orderBy("queuedAt").toArray(),
-    [],
-    [],
-  );
-  const meta = useLiveQuery(() => offlineDb.meta.toArray(), [], []);
-  const [isBootstrapping, setIsBootstrapping] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     void (async () => {
-      try {
-        await bootstrapFromServer();
-      } finally {
-        setIsBootstrapping(false);
-      }
+      await bootstrapFromServer();
     })();
   }, []);
 
   async function syncNow() {
-    if (!navigator.onLine) {
-      return;
-    }
-
-    setIsSyncing(true);
-
-    try {
-      await flushMutations();
-    } finally {
-      setIsSyncing(false);
-    }
+    await flushMutations();
   }
 
-  useEffect(() => {
-    const onOnline = () => {
-      void syncNow();
-    };
-
-    window.addEventListener("online", onOnline);
-    return () => {
-      window.removeEventListener("online", onOnline);
-    };
-  });
-
-  useEffect(() => {
-    if (isBootstrapping || isSyncing || !navigator.onLine) {
-      return;
-    }
-
-    if ((pendingMutations?.length ?? 0) === 0) {
-      return;
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      void syncNow();
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, [isBootstrapping, isSyncing, pendingMutations?.length]);
-
   return {
-    rooms: rooms ?? [],
-    places: places ?? [],
-    items: items ?? [],
-    shoppingLists: shoppingLists ?? [],
-    shoppingListEntries: shoppingListEntries ?? [],
-    recipes: recipes ?? [],
-    recipeIngredients: recipeIngredients ?? [],
-    mealPlans: mealPlans ?? [],
-    pendingMutations: pendingMutations ?? [],
-    lastBootstrapAt:
-      meta?.find((entry) => entry.key === "lastBootstrapAt")?.value ?? null,
-    isBootstrapping,
-    isSyncing,
+    ...state,
     syncNow,
   };
 }

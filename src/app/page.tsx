@@ -1,4 +1,4 @@
-import { ArrowRight, Signal } from "lucide-react";
+import { ArrowRight, Server } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AuthCard } from "@/components/auth-card";
@@ -19,16 +19,16 @@ export default async function HomePage() {
             <div className="absolute inset-y-8 right-6 hidden w-40 rounded-full border border-white/15 bg-white/5 backdrop-blur lg:block" />
             <div className="relative max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.24em] text-white/75">
-                <Signal className="size-3.5" />
-                Half offline by design
+                <Server className="size-3.5" />
+                Server-backed inventory
               </div>
               <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:text-5xl lg:text-6xl">
-                Home inventory that survives patchy supermarket signal.
+                Home inventory with one clear source of truth.
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-white/78 sm:text-lg">
                 Rooms contain places, places contain items, and low stock floats
                 to the surface fast. This first build is wired for Turso, Better
-                Auth, Vercel Blob, and a local IndexedDB cache with a sync queue.
+                Auth, Vercel Blob, and direct server writes.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -37,12 +37,12 @@ export default async function HomePage() {
                   body="Desired vs actual levels with amber and red alerts."
                 />
                 <Feature
-                  title="Local-first"
-                  body="IndexedDB cache plus queued writes for flaky connections."
+                  title="Server truth"
+                  body="Fresh inventory state comes straight from the app server."
                 />
                 <Feature
                   title="Vercel-ready"
-                  body="Blob upload route, PWA manifest, and Turso config in place."
+                  body="Blob upload route and Turso config are already in place."
                 />
               </div>
 

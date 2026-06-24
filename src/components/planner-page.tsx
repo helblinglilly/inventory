@@ -74,9 +74,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
     await enqueueMutation(buildMutation("meal-plan", "upsert", nextPlan, timestamp));
     setMessage(recipeId ? "Meal saved" : "Meal note saved");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function clearMealPlan() {
@@ -89,9 +87,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
     await enqueueMutation(buildMutation("meal-plan", "delete", { id: selectedPlan.id }, timestamp));
     setMessage("Meal cleared");
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function addRecipeIngredientsToShoppingList(recipe: RecipeRecord) {
@@ -142,9 +138,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
 
     setMessage(`Added ingredients for ${recipe.name} to the shopping list`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   return (

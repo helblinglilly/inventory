@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { DM_Sans, IBM_Plex_Mono } from "next/font/google";
-import { ServiceWorkerReset } from "@/components/service-worker-reset";
 import "./globals.css";
 
 const sans = DM_Sans({
@@ -16,7 +15,7 @@ const mono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Inventory",
-  description: "A local-first home inventory with rooms, places, and stock alerts.",
+  description: "A home inventory with rooms, places, and stock alerts.",
   applicationName: "Inventory",
 };
 
@@ -31,10 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`}>
-      <body>
-        <ServiceWorkerReset />
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

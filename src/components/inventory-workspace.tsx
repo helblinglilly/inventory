@@ -149,7 +149,7 @@ export function InventoryWorkspace() {
       ),
     );
 
-    if (options?.syncAfter !== false && navigator.onLine) {
+    if (options?.syncAfter !== false) {
       await syncNow();
     }
   }
@@ -199,9 +199,7 @@ export function InventoryWorkspace() {
       });
     }
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function addLowStockItems() {
@@ -238,9 +236,7 @@ export function InventoryWorkspace() {
       await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
     }
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function createNewList() {
@@ -288,9 +284,7 @@ export function InventoryWorkspace() {
       await enqueueMutation(buildMutation("shopping-list-entry", "upsert", entry, timestamp));
     }
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function quickAddShoppingItem() {
@@ -401,9 +395,7 @@ export function InventoryWorkspace() {
     setQuickItemQuantity("1");
     setMessage(`${name} added to the shopping list`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   if (isBootstrapping) {

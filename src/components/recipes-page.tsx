@@ -51,9 +51,7 @@ export function RecipesPage({ userId }: RecipesPageProps) {
     setNewRecipeName("");
     setMessage(`Created ${recipe.name}`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   return (

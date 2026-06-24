@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useState } from "react";
 import { ArrowLeft, Loader2, Save, ShoppingBasket, Trash2, Upload } from "lucide-react";
-import { offlineDb } from "@/features/inventory/offline-db";
 import {
   buildMutation,
   getActiveShoppingList,
@@ -17,10 +15,8 @@ import {
 import {
   applyItemLocally,
   applyShoppingListEntryLocally,
-  bootstrapFromServer,
   deleteItemLocally,
   enqueueMutation,
-  flushMutations,
 } from "@/features/inventory/sync";
 import type {
   ItemRecord,
@@ -29,6 +25,7 @@ import type {
   ShoppingListEntryRecord,
   ShoppingListRecord,
 } from "@/features/inventory/types";
+import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import { formatCurrencyFromPence, penceToPoundsInput, poundsToPence } from "@/lib/utils";
 
 type ItemEditorProps = {
@@ -36,36 +33,17 @@ type ItemEditorProps = {
 };
 
 export function ItemEditor({ itemId }: ItemEditorProps) {
-  const rooms = useLiveQuery(() => offlineDb.rooms.orderBy("sortOrder").toArray(), [], []);
-  const places = useLiveQuery(
-    () => offlineDb.places.orderBy("sortOrder").toArray(),
-    [],
-    [],
-  );
-  const item = useLiveQuery(() => offlineDb.items.get(itemId), [itemId], undefined);
-  const shoppingLists = useLiveQuery(
-    () => offlineDb.shoppingLists.orderBy("createdAt").toArray(),
-    [],
-    [],
-  );
-  const shoppingListEntries = useLiveQuery(
-    () => offlineDb.shoppingListEntries.orderBy("createdAt").toArray(),
-    [],
-    [],
-  );
-  const [isLoading, setIsLoading] = useState(true);
+  const {
+    rooms,
+    places,
+    items,
+    shoppingLists,
+    shoppingListEntries,
+    isBootstrapping,
+  } = useInventoryData();
+  const item = items.find((entry) => entry.id === itemId);
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        await bootstrapFromServer();
-      } finally {
-        setIsLoading(false);
-      }
-    })();
-  }, []);
-
-  if (isLoading) {
+  if (isBootstrapping) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="flex items-center gap-3 rounded-full bg-white/85 px-5 py-3 text-sm font-medium text-[color:var(--color-ink)] shadow-sm">
@@ -76,7 +54,7 @@ export function ItemEditor({ itemId }: ItemEditorProps) {
     );
   }
 
-  if (!item || !rooms || !places || !shoppingLists || !shoppingListEntries) {
+  if (!item) {
     return (
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-6 text-[color:var(--color-ink)] shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
         <Link
@@ -117,6 +95,7 @@ function ItemEditorForm({
   shoppingListEntries: ShoppingListEntryRecord[];
 }) {
   const router = useRouter();
+  const { syncNow } = useInventoryData();
   const currentPlaceIds = getItemPlaceIds(item);
   const currentPlace = places.find((entry) => entry.id === currentPlaceIds[0]);
   const [selectedRoomId, setSelectedRoomId] = useState(currentPlace?.roomId ?? rooms[0]?.id ?? "");
@@ -214,10 +193,7 @@ function ItemEditorForm({
 
       await applyItemLocally(nextItem);
       await enqueueMutation(buildMutation("item", "upsert", nextItem, timestamp));
-
-      if (navigator.onLine) {
-        await flushMutations();
-      }
+      await syncNow();
 
       setImageFile(null);
       setMessage("Saved");
@@ -264,10 +240,7 @@ function ItemEditorForm({
 
     await applyShoppingListEntryLocally(nextEntry);
     await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
-
-    if (navigator.onLine) {
-      await flushMutations();
-    }
+    await syncNow();
 
     setMessage("Added to shopping list");
   }
@@ -280,10 +253,7 @@ function ItemEditorForm({
       const timestamp = getTimestamp();
       await deleteItemLocally(item.id);
       await enqueueMutation(buildMutation("item", "delete", { id: item.id }, timestamp));
-
-      if (navigator.onLine) {
-        await flushMutations();
-      }
+      await syncNow();
 
       router.push("/app/items");
     } catch (error) {

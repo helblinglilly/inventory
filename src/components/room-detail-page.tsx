@@ -100,9 +100,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
     setPlaceName("");
     setMessage(`${place.name} added`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function addRoomItem() {
@@ -154,9 +152,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
     setItemNotes("");
     setMessage(`${nextItem.name} added to ${currentRoom.name}`);
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
   }
 
   async function removeRoom() {
@@ -164,9 +160,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
     await deleteRoomLocally(roomIdValue);
     await enqueueMutation(buildMutation("room", "delete", { id: roomIdValue }, timestamp));
 
-    if (navigator.onLine) {
-      await syncNow();
-    }
+    await syncNow();
 
     router.push("/app/rooms");
   }

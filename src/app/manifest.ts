@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Inventory",
     short_name: "Inventory",
-    description: "A local-first home inventory for rooms, places, and stock alerts.",
+    description: "A home inventory for rooms, places, and stock alerts.",
     start_url: "/app",
     display: "standalone",
     background_color: "#f5efe6",
