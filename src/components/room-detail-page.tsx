@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   ChevronRight,
   Home,
   Loader2,
@@ -37,6 +39,7 @@ type RoomDetailPageProps = {
 export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
   const router = useRouter();
   const { rooms, places, items, isBootstrapping, syncNow } = useInventoryData();
+  const [movingPlaceId, setMovingPlaceId] = useState<string | null>(null);
   const [placeName, setPlaceName] = useState("");
   const [itemName, setItemName] = useState("");
   const [desiredStock, setDesiredStock] = useState(1);
@@ -165,6 +168,55 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
     router.push("/app/rooms");
   }
 
+  async function movePlace(placeId: string, direction: "up" | "down") {
+    const currentIndex = visiblePlaces.findIndex((place) => place.id === placeId);
+
+    if (currentIndex === -1) {
+      return;
+    }
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+
+    if (targetIndex < 0 || targetIndex >= visiblePlaces.length) {
+      return;
+    }
+
+    const reorderedPlaces = [...visiblePlaces];
+    const [placeToMove] = reorderedPlaces.splice(currentIndex, 1);
+    reorderedPlaces.splice(targetIndex, 0, placeToMove);
+
+    const timestamp = getTimestamp();
+    const sortOrderOffset = roomLevelPlace ? 1 : 0;
+    const updatedPlaces = reorderedPlaces
+      .map((place, index) => ({
+        ...place,
+        sortOrder: index + sortOrderOffset,
+        updatedAt: place.id === placeId ? timestamp : place.updatedAt,
+      }))
+      .filter((place) => {
+        const originalPlace = visiblePlaces.find((entry) => entry.id === place.id);
+        return originalPlace && originalPlace.sortOrder !== place.sortOrder;
+      });
+
+    if (updatedPlaces.length === 0) {
+      return;
+    }
+
+    setMovingPlaceId(placeId);
+
+    try {
+      for (const updatedPlace of updatedPlaces) {
+        await applyPlaceLocally(updatedPlace);
+        await enqueueMutation(buildMutation("place", "upsert", updatedPlace, timestamp));
+      }
+
+      setMessage("Place order updated");
+      await syncNow();
+    } finally {
+      setMovingPlaceId(null);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <header className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
@@ -222,6 +274,9 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
                 <h3 className="mt-1 text-xl font-semibold text-[color:var(--color-ink)]">
                   Storage spots in this room
                 </h3>
+                <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+                  Use the arrows to match your usual layout or walking route.
+                </p>
               </div>
               <div className="rounded-full bg-[color:var(--color-panel-muted)] px-4 py-2 text-sm font-medium text-[color:var(--color-ink)]">
                 {visiblePlaces.length}
@@ -234,30 +289,69 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
                   No places in this room yet. Add one on the right.
                 </div>
               ) : (
-                visiblePlaces.map((place) => {
+                visiblePlaces.map((place, index) => {
                   const itemCount = items.filter((item) => itemHasPlace(item, place.id)).length;
+                  const isMoving = movingPlaceId === place.id;
 
                   return (
-                    <Link
+                    <div
                       key={place.id}
-                      href={`/app/places/${place.id}`}
-                      className="block rounded-[1.5rem] bg-[color:var(--color-panel-muted)] px-4 py-4 transition hover:bg-white hover:shadow-sm"
+                      className="flex items-center gap-3 rounded-[1.5rem] bg-[color:var(--color-panel-muted)] px-4 py-4"
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <h3 className="text-base font-semibold text-[color:var(--color-ink)]">
-                            {place.name}
-                          </h3>
-                          <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-                            {itemCount} items in this place
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <MapPinned className="size-5 text-[color:var(--color-forest)]" />
-                          <ChevronRight className="size-4 text-[color:var(--color-ink-soft)]" />
-                        </div>
+                      <div className="flex flex-col gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void movePlace(place.id, "up")}
+                          disabled={index === 0 || isMoving}
+                          className={cn(
+                            "inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition",
+                            index === 0 || isMoving
+                              ? "cursor-not-allowed opacity-40"
+                              : "hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]",
+                          )}
+                          aria-label={`Move ${place.name} up`}
+                        >
+                          <ArrowUp className="size-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void movePlace(place.id, "down")}
+                          disabled={index === visiblePlaces.length - 1 || isMoving}
+                          className={cn(
+                            "inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition",
+                            index === visiblePlaces.length - 1 || isMoving
+                              ? "cursor-not-allowed opacity-40"
+                              : "hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]",
+                          )}
+                          aria-label={`Move ${place.name} down`}
+                        >
+                          <ArrowDown className="size-4" />
+                        </button>
                       </div>
-                    </Link>
+                      <Link
+                        href={`/app/places/${place.id}`}
+                        className="block min-w-0 flex-1 rounded-[1.25rem] px-1 py-1 transition hover:bg-white hover:shadow-sm"
+                      >
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="min-w-0">
+                            <h3 className="truncate text-base font-semibold text-[color:var(--color-ink)]">
+                              {place.name}
+                            </h3>
+                            <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                              {itemCount} items in this place
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {isMoving ? (
+                              <Loader2 className="size-4 animate-spin text-[color:var(--color-forest)]" />
+                            ) : (
+                              <MapPinned className="size-5 text-[color:var(--color-forest)]" />
+                            )}
+                            <ChevronRight className="size-4 text-[color:var(--color-ink-soft)]" />
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
                   );
                 })
               )}
