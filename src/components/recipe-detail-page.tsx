@@ -499,6 +499,10 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
               if (!item) {
                 return null;
               }
+              const suggestedCostOverridePlaceholder =
+                item.pricePaidPence != null
+                  ? penceToPoundsInput(Math.round(item.pricePaidPence * ingredient.quantity))
+                  : "No known price";
 
               return (
                 <article
@@ -594,7 +598,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                             event.currentTarget.blur();
                           }
                         }}
-                        placeholder="0.40"
+                        placeholder={suggestedCostOverridePlaceholder}
                         inputMode="decimal"
                         className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
                       />
