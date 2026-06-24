@@ -63,7 +63,6 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     syncNow,
   } = useInventoryData();
   const [ingredientSearch, setIngredientSearch] = useState("");
-  const [quickAddItemName, setQuickAddItemName] = useState("");
   const [quickAddPlaceId, setQuickAddPlaceId] = useState("");
   const [quickAddIsStaple, setQuickAddIsStaple] = useState(false);
   const [costOverrideDrafts, setCostOverrideDrafts] = useState<Record<string, string>>({});
@@ -98,21 +97,26 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
   const effectiveQuickAddPlaceId = places.some((place) => place.id === quickAddPlaceId)
     ? quickAddPlaceId
     : places[0]?.id ?? "";
+  const normalizedIngredientSearch = ingredientSearch.trim().toLowerCase();
   const filteredItems = items.filter((item) => {
     if (selectedIngredients.some((ingredient) => ingredient.itemId === item.id)) {
       return false;
     }
 
-    if (!ingredientSearch.trim()) {
+    if (!normalizedIngredientSearch) {
       return true;
     }
 
-    const query = ingredientSearch.trim().toLowerCase();
     return (
-      item.name.toLowerCase().includes(query) ||
-      (item.notes ?? "").toLowerCase().includes(query)
+      item.name.toLowerCase().includes(normalizedIngredientSearch) ||
+      (item.notes ?? "").toLowerCase().includes(normalizedIngredientSearch)
     );
   });
+  const matchingExistingItem =
+    filteredItems.find((item) => item.name.trim().toLowerCase() === normalizedIngredientSearch) ??
+    null;
+  const canCreateNewIngredient =
+    normalizedIngredientSearch.length > 0 && matchingExistingItem == null;
   const placeOptions = places.map((place) => ({
     id: place.id,
     label: getPlaceOptionLabel(place, rooms),
@@ -180,10 +184,11 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     }
 
     await linkItemToRecipe(item);
+    setIngredientSearch("");
   }
 
   async function createGlobalItemAndLink() {
-    if (!quickAddItemName.trim()) {
+    if (!ingredientSearch.trim()) {
       return;
     }
 
@@ -192,14 +197,14 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
       return;
     }
 
-    const normalizedName = quickAddItemName.trim().toLowerCase();
+    const normalizedName = ingredientSearch.trim().toLowerCase();
     const existingItem = items.find((item) => item.name.trim().toLowerCase() === normalizedName);
 
     if (existingItem) {
       await linkItemToRecipe(existingItem, {
         message: `${existingItem.name} linked to ${currentRecipe.name}`,
       });
-      setQuickAddItemName("");
+      setIngredientSearch("");
       return;
     }
 
@@ -209,7 +214,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
       placeId: effectiveQuickAddPlaceId,
       placeIds: [effectiveQuickAddPlaceId],
       userId,
-      name: quickAddItemName.trim(),
+      name: ingredientSearch.trim(),
       notes: undefined,
       imageUrl: null,
       imageProxyUrl: null,
@@ -239,7 +244,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     await applyRecipeIngredientLocally(ingredient);
     await enqueueMutation(buildMutation("recipe-ingredient", "upsert", ingredient, timestamp));
 
-    setQuickAddItemName("");
+    setIngredientSearch("");
     setQuickAddIsStaple(false);
     setMessage(`${item.name} created and linked to ${currentRecipe.name}`);
 
@@ -580,64 +585,61 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
           <div className="space-y-4">
             <div className="rounded-[1.5rem] border border-black/10 bg-white p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-                Quick add
+                Search ingredients
               </p>
               <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
-                Create a new global item here and link it to this recipe immediately.
+                Start typing to search registered ingredients first. If nothing exists yet,
+                create a new one from the same form.
               </p>
 
               <div className="mt-4 space-y-3">
                 <input
-                  value={quickAddItemName}
-                  onChange={(event) => setQuickAddItemName(event.target.value)}
-                  placeholder="Add a new ingredient"
-                  className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
-                />
-                <select
-                  value={effectiveQuickAddPlaceId}
-                  onChange={(event) => setQuickAddPlaceId(event.target.value)}
-                  className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
-                >
-                  {placeOptions.length === 0 ? (
-                    <option value="">No places available</option>
-                  ) : (
-                    placeOptions.map((place) => (
-                      <option key={place.id} value={place.id}>
-                        {place.label}
-                      </option>
-                    ))
-                  )}
-                </select>
-                <label className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink)]">
-                  <input
-                    type="checkbox"
-                    checked={quickAddIsStaple}
-                    onChange={(event) => setQuickAddIsStaple(event.target.checked)}
-                    className="size-4 rounded border-black/20"
-                  />
-                  Make this a staple item
-                </label>
-                <button
-                  type="button"
-                  onClick={() => void createGlobalItemAndLink()}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
-                >
-                  <Plus className="size-4" />
-                  Create and link
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-                Link existing item
-              </p>
-              <input
                 value={ingredientSearch}
                 onChange={(event) => setIngredientSearch(event.target.value)}
-                placeholder="Search items"
-                className="mt-3 w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                placeholder="Search anything"
+                className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
               />
+                {matchingExistingItem ? (
+                  <p className="rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
+                    Exact match found: <span className="font-semibold text-[color:var(--color-ink)]">{matchingExistingItem.name}</span>. Pick it from the results below to link it.
+                  </p>
+                ) : canCreateNewIngredient ? (
+                  <>
+                    <select
+                      value={effectiveQuickAddPlaceId}
+                      onChange={(event) => setQuickAddPlaceId(event.target.value)}
+                      className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                    >
+                      {placeOptions.length === 0 ? (
+                        <option value="">No places available</option>
+                      ) : (
+                        placeOptions.map((place) => (
+                          <option key={place.id} value={place.id}>
+                            {place.label}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <label className="flex items-center gap-3 rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink)]">
+                      <input
+                        type="checkbox"
+                        checked={quickAddIsStaple}
+                        onChange={(event) => setQuickAddIsStaple(event.target.checked)}
+                        className="size-4 rounded border-black/20"
+                      />
+                      Make this a staple item
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void createGlobalItemAndLink()}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
+                    >
+                      <Plus className="size-4" />
+                      Create "{ingredientSearch.trim()}" and link
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
 
@@ -658,7 +660,9 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
             ))}
             {filteredItems.length === 0 ? (
               <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
-                No more matching items to add.
+                {canCreateNewIngredient
+                  ? "No registered ingredient matches yet. You can create this one above."
+                  : "No more matching items to add."}
               </div>
             ) : null}
           </div>
