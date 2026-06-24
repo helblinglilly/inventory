@@ -66,6 +66,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
   const [quickAddItemName, setQuickAddItemName] = useState("");
   const [quickAddPlaceId, setQuickAddPlaceId] = useState("");
   const [quickAddIsStaple, setQuickAddIsStaple] = useState(false);
+  const [costOverrideDrafts, setCostOverrideDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
 
   if (isBootstrapping) {
@@ -116,6 +117,10 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     id: place.id,
     label: getPlaceOptionLabel(place, rooms),
   }));
+
+  function getCostOverrideInputValue(ingredient: RecipeIngredientRecord) {
+    return costOverrideDrafts[ingredient.id] ?? penceToPoundsInput(ingredient.costPenceOverride);
+  }
 
   async function saveRecipe(updates: RecipeUpdates) {
     const timestamp = getTimestamp();
@@ -269,6 +274,31 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     setMessage("Ingredient removed");
 
     await syncNow();
+  }
+
+  async function commitCostOverrideDraft(ingredient: RecipeIngredientRecord) {
+    const draftValue = costOverrideDrafts[ingredient.id];
+
+    if (draftValue == null) {
+      return;
+    }
+
+    const trimmedValue = draftValue.trim();
+    const nextValue = trimmedValue === "" ? null : poundsToPence(trimmedValue);
+
+    setCostOverrideDrafts((currentDrafts) => {
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[ingredient.id];
+      return nextDrafts;
+    });
+
+    if (nextValue === ingredient.costPenceOverride) {
+      return;
+    }
+
+    await updateIngredient(ingredient, {
+      costPenceOverride: nextValue,
+    });
   }
 
   async function addRecipeToShoppingList() {
@@ -503,15 +533,19 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                         Cost override (GBP)
                       </span>
                       <input
-                        value={penceToPoundsInput(ingredient.costPenceOverride)}
+                        value={getCostOverrideInputValue(ingredient)}
                         onChange={(event) =>
-                          void updateIngredient(ingredient, {
-                            costPenceOverride:
-                              event.target.value.trim() === ""
-                                ? null
-                                : poundsToPence(event.target.value),
-                          })
+                          setCostOverrideDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [ingredient.id]: event.target.value,
+                          }))
                         }
+                        onBlur={() => void commitCostOverrideDraft(ingredient)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
                         placeholder="0.40"
                         inputMode="decimal"
                         className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
