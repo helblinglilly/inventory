@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   ArrowLeft,
@@ -15,6 +16,7 @@ import {
   applyRecipeIngredientLocally,
   applyRecipeLocally,
   applyShoppingListEntryLocally,
+  deleteRecipeLocally,
   deleteRecipeIngredientLocally,
   enqueueMutation,
 } from "@/features/inventory/sync";
@@ -48,6 +50,7 @@ type RecipeUpdates = {
 };
 
 export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
+  const router = useRouter();
   const {
     items,
     rooms,
@@ -320,6 +323,24 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
     await syncNow();
   }
 
+  async function deleteRecipe() {
+    const confirmed = window.confirm(
+      `Delete ${currentRecipe.name}? This will remove it from the recipe catalog.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const timestamp = getTimestamp();
+    await deleteRecipeLocally(currentRecipe.id);
+    await enqueueMutation(
+      buildMutation("recipe", "delete", { id: currentRecipe.id }, timestamp),
+    );
+    await syncNow();
+    router.push("/app/recipes");
+  }
+
   return (
     <section className="space-y-4">
       <header className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)]">
@@ -357,6 +378,14 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
             >
               <ShoppingBasket className="size-4" />
               Add ingredients to list
+            </button>
+            <button
+              type="button"
+              onClick={() => void deleteRecipe()}
+              className="inline-flex items-center gap-2 rounded-2xl border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+            >
+              <Trash2 className="size-4" />
+              Delete recipe
             </button>
           </div>
         </div>

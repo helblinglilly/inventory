@@ -190,6 +190,24 @@ export async function applyRecipeLocally(recipe: RecipeRecord) {
   }));
 }
 
+export async function deleteRecipeLocally(recipeId: string) {
+  setInventoryStoreState((currentState) => ({
+    ...currentState,
+    recipes: currentState.recipes.filter((entry) => entry.id !== recipeId),
+    recipeIngredients: currentState.recipeIngredients.filter(
+      (entry) => entry.recipeId !== recipeId,
+    ),
+    shoppingListEntries: currentState.shoppingListEntries.filter(
+      (entry) => entry.recipeId !== recipeId,
+    ),
+    mealPlans: currentState.mealPlans.map((entry) =>
+      entry.recipeId === recipeId
+        ? { ...entry, recipeId: null }
+        : entry,
+    ),
+  }));
+}
+
 export async function applyRecipeIngredientLocally(ingredient: RecipeIngredientRecord) {
   setInventoryStoreState((currentState) => ({
     ...currentState,
