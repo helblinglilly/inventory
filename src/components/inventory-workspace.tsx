@@ -127,15 +127,54 @@ export function InventoryWorkspace() {
     return { existingRoom, existingPlace };
   }
 
+  async function ensurePersistedShoppingEntry(entry: ShoppingViewEntry) {
+    if (!activeShoppingList || !entry.item) {
+      return null;
+    }
+
+    if (entry.entryId) {
+      return shoppingListEntries.find((candidate) => candidate.id === entry.entryId) ?? null;
+    }
+
+    const timestamp = getTimestamp();
+    const nextEntry: ShoppingListEntryRecord = {
+      id: getId(),
+      listId: activeShoppingList.id,
+      userId: entry.item.userId,
+      itemId: entry.item.id,
+      recipeId: entry.recipeId,
+      label: entry.label,
+      sourceType: entry.sourceType,
+      quantity: entry.quantity,
+      unitLabel: entry.unitLabel,
+      checkedAt: entry.checkedAt,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    await applyShoppingListEntryLocally(nextEntry);
+    await enqueueMutation(
+      buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp),
+    );
+
+    return nextEntry;
+  }
+
   async function adjustItemStock(
-    item: NonNullable<ShoppingViewEntry["item"]>,
+    entry: ShoppingViewEntry,
     delta: number,
     options?: { syncAfter?: boolean },
   ) {
+    if (!entry.item) {
+      return;
+    }
+
+    await ensurePersistedShoppingEntry(entry);
+
     const timestamp = getTimestamp();
     const nextItem = {
-      ...item,
-      actualStock: Math.max(item.actualStock + delta, 0),
+      ...entry.item,
+      actualStock: Math.max(entry.item.actualStock + delta, 0),
       updatedAt: timestamp,
     };
 
@@ -144,7 +183,7 @@ export function InventoryWorkspace() {
       buildMutation(
         "item",
         "adjust-stock",
-        { id: item.id, delta, updatedAt: timestamp },
+        { id: entry.item.id, delta, updatedAt: timestamp },
         timestamp,
       ),
     );
@@ -159,45 +198,28 @@ export function InventoryWorkspace() {
       return;
     }
 
-    const timestamp = getTimestamp();
-    const persistedEntry = entry.entryId
-      ? (shoppingListEntries.find((candidate) => candidate.id === entry.entryId) ?? null)
-      : null;
+    const persistedEntry = await ensurePersistedShoppingEntry(entry);
     const nextEntry = persistedEntry
       ? {
           ...persistedEntry,
-          checkedAt: checked ? timestamp : null,
-          updatedAt: timestamp,
+          checkedAt: checked ? getTimestamp() : null,
+          updatedAt: getTimestamp(),
         }
-      : entry.item
-        ? {
-            id: getId(),
-            listId: activeShoppingList.id,
-            userId: entry.item.userId,
-            itemId: entry.item.id,
-            recipeId: null,
-            label: entry.item.name,
-            sourceType: "low-stock" as const,
-            quantity: entry.quantity,
-            unitLabel: entry.unitLabel,
-            checkedAt: checked ? timestamp : null,
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          }
-        : null;
+      : null;
 
     if (!nextEntry) {
       return;
     }
 
     await applyShoppingListEntryLocally(nextEntry);
-    await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
-
-    if (entry.item && checked !== Boolean(entry.checkedAt)) {
-      await adjustItemStock(entry.item, checked ? entry.quantity : -entry.quantity, {
-        syncAfter: false,
-      });
-    }
+    await enqueueMutation(
+      buildMutation(
+        "shopping-list-entry",
+        "upsert",
+        nextEntry,
+        nextEntry.updatedAt,
+      ),
+    );
 
     await syncNow();
   }
@@ -547,7 +569,7 @@ function ShoppingSection({
   }>;
   itemEntryCounts: Map<string, number>;
   onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
-  onAdjustItemStock: (item: NonNullable<ShoppingViewEntry["item"]>, delta: number) => Promise<void>;
+  onAdjustItemStock: (entry: ShoppingViewEntry, delta: number) => Promise<void>;
 }) {
   return (
     <>
@@ -674,7 +696,7 @@ function ShoppingSection({
                           <div className="flex shrink-0 items-center gap-2">
                             <button
                               type="button"
-                              onClick={() => void onAdjustItemStock(entry.item!, -1)}
+                              onClick={() => void onAdjustItemStock(entry, -1)}
                               disabled={entry.item.actualStock <= 0}
                               aria-label={`Remove one ${entry.label} from stock`}
                               className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
@@ -683,7 +705,7 @@ function ShoppingSection({
                             </button>
                             <button
                               type="button"
-                              onClick={() => void onAdjustItemStock(entry.item!, 1)}
+                              onClick={() => void onAdjustItemStock(entry, 1)}
                               aria-label={`Add one ${entry.label} to stock`}
                               className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
                             >
