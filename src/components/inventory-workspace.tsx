@@ -27,7 +27,7 @@ import {
 } from "@/features/inventory/sync";
 import type { PlaceRecord, RoomRecord, ShoppingListEntryRecord } from "@/features/inventory/types";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrencyFromPence } from "@/lib/utils";
 
 export function InventoryWorkspace() {
   const {
@@ -557,16 +557,24 @@ function ShoppingSection({
             No shopping items yet. Low-stock items and recipe ingredients will show up here.
           </div>
         ) : (
-          groupedEntries.map((group) => (
-            <div
-              key={group.placeLabel}
-              className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3"
-            >
+          groupedEntries.map((group) => {
+            const expectedGroupPricePence = getExpectedGroupPricePence(group.entries);
+
+            return (
+              <div
+                key={group.placeLabel}
+                className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3"
+              >
               <div className="flex items-center justify-between gap-3 px-1 pb-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
                     {group.placeLabel}
                   </p>
+                  {expectedGroupPricePence != null ? (
+                    <p className="mt-1 text-sm font-medium text-[color:var(--color-ink)]">
+                      Expected total {formatCurrencyFromPence(expectedGroupPricePence)}
+                    </p>
+                  ) : null}
                 </div>
                 <div className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--color-ink)]">
                   {group.entries.filter((entry) => !entry.checkedAt).length} open
@@ -580,6 +588,7 @@ function ShoppingSection({
                     : 0;
                   const showCheckbox = !entry.itemId || itemEntryCount <= 1;
                   const isChecked = Boolean(entry.checkedAt);
+                  const expectedEntryPricePence = getExpectedEntryPricePence(entry);
 
                   return (
                     <article
@@ -650,6 +659,16 @@ function ShoppingSection({
                               ? ` · ${entry.item.actualStock}/${entry.item.desiredStock} in stock`
                               : ""}
                           </p>
+                          {expectedEntryPricePence != null ? (
+                            <p
+                              className={cn(
+                                "mt-1 text-sm font-medium text-[color:var(--color-ink)]",
+                                isChecked && "line-through decoration-2 opacity-70",
+                              )}
+                            >
+                              Expected price {formatCurrencyFromPence(expectedEntryPricePence)}
+                            </p>
+                          ) : null}
                         </div>
                         {entry.item ? (
                           <div className="flex shrink-0 items-center gap-2">
@@ -677,8 +696,9 @@ function ShoppingSection({
                   );
                 })}
               </div>
-            </div>
-          ))
+              </div>
+            );
+          })
         )}
       </div>
     </>
@@ -713,6 +733,27 @@ function getItemEntryCounts(entries: ShoppingViewEntry[]) {
   }
 
   return counts;
+}
+
+function getExpectedEntryPricePence(entry: ShoppingViewEntry) {
+  if (!entry.item?.pricePaidPence) {
+    return null;
+  }
+
+  return Math.round(entry.item.pricePaidPence * entry.quantity);
+}
+
+function getExpectedGroupPricePence(entries: ShoppingViewEntry[]) {
+  const pricedEntries = entries
+    .filter((entry) => !entry.checkedAt)
+    .map(getExpectedEntryPricePence)
+    .filter((value): value is number => value != null);
+
+  if (pricedEntries.length === 0) {
+    return null;
+  }
+
+  return pricedEntries.reduce((total, value) => total + value, 0);
 }
 
 function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
