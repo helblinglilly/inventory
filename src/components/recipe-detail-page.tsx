@@ -65,6 +65,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [quickAddPlaceId, setQuickAddPlaceId] = useState("");
   const [quickAddIsStaple, setQuickAddIsStaple] = useState(false);
+  const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({});
   const [costOverrideDrafts, setCostOverrideDrafts] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
 
@@ -124,6 +125,10 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
 
   function getCostOverrideInputValue(ingredient: RecipeIngredientRecord) {
     return costOverrideDrafts[ingredient.id] ?? penceToPoundsInput(ingredient.costPenceOverride);
+  }
+
+  function getQuantityInputValue(ingredient: RecipeIngredientRecord) {
+    return quantityDrafts[ingredient.id] ?? String(ingredient.quantity);
   }
 
   async function saveRecipe(updates: RecipeUpdates) {
@@ -303,6 +308,36 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
 
     await updateIngredient(ingredient, {
       costPenceOverride: nextValue,
+    });
+  }
+
+  async function commitQuantityDraft(ingredient: RecipeIngredientRecord) {
+    const draftValue = quantityDrafts[ingredient.id];
+
+    if (draftValue == null) {
+      return;
+    }
+
+    const trimmedValue = draftValue.trim();
+    const nextValue = Number(trimmedValue);
+
+    if (!trimmedValue || !Number.isFinite(nextValue) || nextValue <= 0) {
+      setMessage("Enter a valid quantity greater than 0");
+      return;
+    }
+
+    setQuantityDrafts((currentDrafts) => {
+      const nextDrafts = { ...currentDrafts };
+      delete nextDrafts[ingredient.id];
+      return nextDrafts;
+    });
+
+    if (nextValue === ingredient.quantity) {
+      return;
+    }
+
+    await updateIngredient(ingredient, {
+      quantity: nextValue,
     });
   }
 
@@ -506,13 +541,21 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                       </span>
                       <input
                         type="number"
-                        min={1}
-                        value={ingredient.quantity}
+                        min={0.01}
+                        step={0.25}
+                        value={getQuantityInputValue(ingredient)}
                         onChange={(event) =>
-                          void updateIngredient(ingredient, {
-                            quantity: Math.max(Number(event.target.value) || 1, 1),
-                          })
+                          setQuantityDrafts((currentDrafts) => ({
+                            ...currentDrafts,
+                            [ingredient.id]: event.target.value,
+                          }))
                         }
+                        onBlur={() => void commitQuantityDraft(ingredient)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.currentTarget.blur();
+                          }
+                        }}
                         className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
                       />
                     </label>

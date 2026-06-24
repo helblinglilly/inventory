@@ -141,7 +141,7 @@ export function getRecipeIngredientCostPence(
     return 0;
   }
 
-  return item.pricePaidPence * ingredient.quantity;
+  return Math.round(item.pricePaidPence * ingredient.quantity);
 }
 
 export function getDinnerPlanForDate(mealPlans: MealPlanRecord[], plannedFor: string) {

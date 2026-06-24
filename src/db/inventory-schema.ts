@@ -2,6 +2,7 @@ import { relations, sql } from "drizzle-orm";
 import {
   index,
   integer,
+  real,
   sqliteTable,
   text,
 } from "drizzle-orm/sqlite-core";
@@ -140,7 +141,7 @@ export const shoppingListEntries = sqliteTable(
     recipeId: text("recipe_id"),
     label: text("label").notNull(),
     sourceType: text("source_type").notNull().default("manual"),
-    quantity: integer("quantity").notNull().default(1),
+    quantity: real("quantity").notNull().default(1),
     unitLabel: text("unit_label"),
     checkedAt: integer("checked_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
@@ -190,7 +191,7 @@ export const recipeIngredients = sqliteTable(
     itemId: text("item_id")
       .notNull()
       .references(() => items.id, { onDelete: "cascade" }),
-    quantity: integer("quantity").notNull().default(1),
+    quantity: real("quantity").notNull().default(1),
     unitLabel: text("unit_label"),
     costPenceOverride: integer("cost_pence_override"),
     includeInCost: integer("include_in_cost", { mode: "boolean" })
