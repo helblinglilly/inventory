@@ -64,6 +64,21 @@ export function InventoryWorkspace() {
   const activeEntryItemIds = new Set(
     activeEntries.flatMap((entry) => (entry.itemId ? [entry.itemId] : [])),
   );
+  const normalizedQuickItemName = quickItemName.trim().toLowerCase();
+  const quickAddMatches = items
+    .filter((item) => {
+      if (!normalizedQuickItemName) {
+        return false;
+      }
+
+      return (
+        item.name.trim().toLowerCase().includes(normalizedQuickItemName) ||
+        (item.notes ?? "").toLowerCase().includes(normalizedQuickItemName)
+      );
+    })
+    .slice(0, 8);
+  const exactQuickAddMatch =
+    items.find((item) => item.name.trim().toLowerCase() === normalizedQuickItemName) ?? null;
   const derivedLowStockEntries: ShoppingViewEntry[] = lowStockItems
     .filter((item) => !activeEntryItemIds.has(item.id))
     .map((item) => ({
@@ -323,8 +338,7 @@ export function InventoryWorkspace() {
     }
 
     const normalizedName = name.toLowerCase();
-    const existingItem =
-      items.find((item) => item.name.trim().toLowerCase() === normalizedName) ?? null;
+    const existingItem = exactQuickAddMatch;
     const timestamp = getTimestamp();
     let item = existingItem;
 
@@ -382,11 +396,44 @@ export function InventoryWorkspace() {
       await enqueueMutation(buildMutation("item", "upsert", item, timestamp));
     }
 
+    await addShoppingEntryForItem({
+      item,
+      quantity,
+      label: name,
+      timestamp,
+    });
+
+    setQuickItemName("");
+    setQuickItemQuantity("1");
+    setMessage(
+      item === existingItem && existingItem
+        ? `${existingItem.name} added to the shopping list`
+        : `${name} added to the shopping list`,
+    );
+
+    await syncNow();
+  }
+
+  async function addShoppingEntryForItem({
+    item,
+    quantity,
+    label,
+    timestamp = getTimestamp(),
+  }: {
+    item: NonNullable<ReturnType<typeof useInventoryData>["items"][number]> | null;
+    quantity: number;
+    label: string;
+    timestamp?: number;
+  }) {
+    if (!activeShoppingList) {
+      return;
+    }
+
     const existingEntry = activeEntries.find(
       (entry) =>
         !entry.checkedAt &&
         ((item && entry.itemId === item.id) ||
-          (!item && entry.label.trim().toLowerCase() === normalizedName)),
+          (!item && entry.label.trim().toLowerCase() === label.trim().toLowerCase())),
     );
 
     const nextEntry: ShoppingListEntryRecord = existingEntry
@@ -401,7 +448,7 @@ export function InventoryWorkspace() {
           userId: activeShoppingList.userId,
           itemId: item?.id ?? null,
           recipeId: null,
-          label: name,
+          label,
           sourceType: "manual",
           quantity,
           unitLabel: null,
@@ -412,11 +459,29 @@ export function InventoryWorkspace() {
 
     await applyShoppingListEntryLocally(nextEntry);
     await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
+  }
 
+  async function addExistingQuickMatch(itemId: string) {
+    if (!activeShoppingList) {
+      return;
+    }
+
+    const item = items.find((entry) => entry.id === itemId) ?? null;
+    if (!item) {
+      return;
+    }
+
+    const quantity = Math.max(Number(quickItemQuantity) || 1, 1);
+    const timestamp = getTimestamp();
+    await addShoppingEntryForItem({
+      item,
+      quantity,
+      label: item.name,
+      timestamp,
+    });
     setQuickItemName("");
     setQuickItemQuantity("1");
-    setMessage(`${name} added to the shopping list`);
-
+    setMessage(`${item.name} added to the shopping list`);
     await syncNow();
   }
 
@@ -505,7 +570,7 @@ export function InventoryWorkspace() {
           <input
             value={quickItemName}
             onChange={(event) => setQuickItemName(event.target.value)}
-            placeholder="Quick add a shopping item"
+            placeholder="Search or add a shopping item"
             className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
           />
           <input
@@ -521,9 +586,45 @@ export function InventoryWorkspace() {
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
           >
             <Plus className="size-4" />
-            Add item
+            {exactQuickAddMatch ? "Add match" : "Create item"}
           </button>
         </div>
+        {normalizedQuickItemName ? (
+          <div className="mt-3 space-y-2">
+            {exactQuickAddMatch ? (
+              <p className="rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
+                Exact match found:{" "}
+                <span className="font-semibold text-[color:var(--color-ink)]">
+                  {exactQuickAddMatch.name}
+                </span>
+                . Add it directly or pick from the matches below.
+              </p>
+            ) : null}
+            {quickAddMatches.length > 0 ? (
+              <div className="grid gap-2">
+                {quickAddMatches.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => startTransition(() => void addExistingQuickMatch(item.id))}
+                    className="w-full rounded-[1.25rem] border border-black/10 bg-white px-4 py-3 text-left transition hover:border-[color:var(--color-forest)] hover:bg-[color:var(--color-panel-muted)]/55"
+                  >
+                    <p className="text-sm font-semibold text-[color:var(--color-ink)]">
+                      {item.name}
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                      {item.actualStock}/{item.desiredStock} in stock
+                    </p>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-dashed border-black/10 bg-white/70 px-4 py-4 text-sm text-[color:var(--color-ink-soft)]">
+                No registered item matches yet. Creating this will add a brand-new inventory item.
+              </p>
+            )}
+          </div>
+        ) : null}
 
         <div className="mt-5">
           <ShoppingSection
