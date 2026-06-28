@@ -220,10 +220,11 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   className={cn(
                     "min-h-16 rounded-[1.1rem] border px-2 py-2 text-left transition sm:min-h-28 sm:rounded-[1.5rem] sm:p-3",
                     isSelected
-                      ? "border-[color:var(--color-forest)] bg-[color:var(--color-panel-muted)] shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]"
+                      ? "border-[color:var(--color-forest)] bg-[color:var(--color-panel-muted)] ring-2 ring-[color:var(--color-clay)]/20 shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]"
                       : "border-black/10 bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
                     !isCurrentMonth && "opacity-45",
                   )}
+                  aria-pressed={isSelected}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-semibold text-[color:var(--color-ink)]">
@@ -248,12 +249,32 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   ) : null}
                   {hasMeal ? (
                     <p className="mt-2 text-[11px] font-medium text-[color:var(--color-ink-soft)] sm:hidden">
-                      Planned
+                      {isSelected ? "Selected" : "Planned"}
                     </p>
                   ) : null}
                 </button>
               );
             })}
+          </div>
+
+          <div className="mt-4 rounded-[1.5rem] border border-[color:var(--color-forest)]/15 bg-[color:var(--color-panel-muted)] p-4 sm:hidden">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+              Selected meal
+            </p>
+            <h4 className="mt-1 text-base font-semibold text-[color:var(--color-ink)]">
+              {formatDateLabel(new Date(`${selectedDateKey}T12:00:00`))}
+            </h4>
+            <p className="mt-3 text-sm font-medium text-[color:var(--color-ink)]">
+              {selectedRecipe?.name ?? selectedPlan?.notes ?? "No meal planned yet"}
+            </p>
+            {selectedRecipe && selectedPlan?.notes ? (
+              <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">{selectedPlan.notes}</p>
+            ) : null}
+            {!selectedRecipe && !selectedPlan?.notes ? (
+              <p className="mt-2 text-sm text-[color:var(--color-ink-soft)]">
+                Pick a recipe or add notes below for this day.
+              </p>
+            ) : null}
           </div>
         </section>
 

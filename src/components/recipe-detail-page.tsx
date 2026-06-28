@@ -682,7 +682,7 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                       className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
                     >
                       <Plus className="size-4" />
-                      Create "{ingredientSearch.trim()}" and link
+                      Create &quot;{ingredientSearch.trim()}&quot; and link
                     </button>
                   </>
                 ) : null}

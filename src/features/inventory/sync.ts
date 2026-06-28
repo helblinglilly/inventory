@@ -264,48 +264,146 @@ export async function deleteMealPlanLocally(mealPlanId: string) {
   }));
 }
 
+async function applyMutationLocally(mutation: SyncMutation) {
+  switch (mutation.entity) {
+    case "room": {
+      if (mutation.operation === "upsert") {
+        await applyRoomLocally(mutation.payload as RoomRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteRoomLocally(String(mutation.payload.id));
+      }
+      return;
+    }
+    case "place": {
+      if (mutation.operation === "upsert") {
+        await applyPlaceLocally(mutation.payload as PlaceRecord);
+      } else if (mutation.operation === "delete") {
+        await deletePlaceLocally(String(mutation.payload.id));
+      }
+      return;
+    }
+    case "item": {
+      if (mutation.operation === "upsert") {
+        await applyItemLocally(mutation.payload as ItemRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteItemLocally(String(mutation.payload.id));
+      } else if (mutation.operation === "adjust-stock") {
+        const payloadItemId = String(mutation.payload.id);
+        const delta = Number(mutation.payload.delta ?? 0);
+        const updatedAt = Number(mutation.payload.updatedAt ?? Date.now());
+        const currentItem =
+          getInventoryStoreSnapshot().items.find((entry) => entry.id === payloadItemId) ?? null;
+
+        if (!currentItem) {
+          return;
+        }
+
+        await applyItemLocally({
+          ...currentItem,
+          actualStock: Math.max(currentItem.actualStock + delta, 0),
+          updatedAt,
+        });
+      }
+      return;
+    }
+    case "shopping-list": {
+      if (mutation.operation === "upsert") {
+        await applyShoppingListLocally(mutation.payload as ShoppingListRecord);
+      }
+      return;
+    }
+    case "shopping-list-entry": {
+      if (mutation.operation === "upsert") {
+        await applyShoppingListEntryLocally(mutation.payload as ShoppingListEntryRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteShoppingListEntryLocally(String(mutation.payload.id));
+      }
+      return;
+    }
+    case "recipe": {
+      if (mutation.operation === "upsert") {
+        await applyRecipeLocally(mutation.payload as RecipeRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteRecipeLocally(String(mutation.payload.id));
+      }
+      return;
+    }
+    case "recipe-ingredient": {
+      if (mutation.operation === "upsert") {
+        await applyRecipeIngredientLocally(mutation.payload as RecipeIngredientRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteRecipeIngredientLocally(String(mutation.payload.id));
+      }
+      return;
+    }
+    case "meal-plan": {
+      if (mutation.operation === "upsert") {
+        await applyMealPlanLocally(mutation.payload as MealPlanRecord);
+      } else if (mutation.operation === "delete") {
+        await deleteMealPlanLocally(String(mutation.payload.id));
+      }
+    }
+  }
+}
+
+async function replayPendingMutationsLocally(pendingMutations: SyncMutation[]) {
+  for (const mutation of pendingMutations) {
+    await applyMutationLocally(mutation);
+  }
+}
+
 export async function flushMutations() {
   if (flushPromise) {
     return flushPromise;
   }
 
   flushPromise = (async () => {
-    const { pendingMutations } = getInventoryStoreSnapshot();
-    const mutationsToFlush = [...pendingMutations];
-
-    if (mutationsToFlush.length === 0) {
-      return;
-    }
-
-    setInventoryStoreState((currentState) => ({
-      ...currentState,
-      isSyncing: true,
-    }));
-
     try {
-      const response = await fetch("/api/inventory/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ mutations: mutationsToFlush }),
-      });
+      while (true) {
+        const { pendingMutations } = getInventoryStoreSnapshot();
+        const mutationsToFlush = [...pendingMutations];
 
-      if (response.status === 401) {
-        await clearLocalInventoryData();
-        throw new Error("Unauthorized");
+        if (mutationsToFlush.length === 0) {
+          return;
+        }
+
+        setInventoryStoreState((currentState) => ({
+          ...currentState,
+          isSyncing: true,
+        }));
+
+        const response = await fetch("/api/inventory/sync", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ mutations: mutationsToFlush }),
+        });
+
+        if (response.status === 401) {
+          await clearLocalInventoryData();
+          throw new Error("Unauthorized");
+        }
+
+        if (!response.ok) {
+          throw new Error("Unable to save inventory changes");
+        }
+
+        const payload = bootstrapResponseSchema.parse(await response.json());
+        await hydrateLocalSnapshot(payload);
+
+        const flushedMutationIds = new Set(mutationsToFlush.map((mutation) => mutation.id));
+        updatePendingMutations((currentPendingMutations) =>
+          currentPendingMutations.filter((mutation) => !flushedMutationIds.has(mutation.id)),
+        );
+
+        const remainingMutations = getInventoryStoreSnapshot().pendingMutations;
+        if (remainingMutations.length === 0) {
+          return;
+        }
+
+        await replayPendingMutationsLocally(remainingMutations);
       }
-
-      if (!response.ok) {
-        throw new Error("Unable to save inventory changes");
-      }
-
-      const payload = bootstrapResponseSchema.parse(await response.json());
-      await hydrateLocalSnapshot(payload);
-      const flushedMutationIds = new Set(mutationsToFlush.map((mutation) => mutation.id));
-      updatePendingMutations((currentPendingMutations) =>
-        currentPendingMutations.filter((mutation) => !flushedMutationIds.has(mutation.id)),
-      );
     } catch (error) {
       await bootstrapFromServer(true).catch(() => undefined);
       throw error;

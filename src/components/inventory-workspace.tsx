@@ -127,6 +127,7 @@ export function InventoryWorkspace() {
   ];
   const itemEntryCounts = getItemEntryCounts(combinedEntries);
   const groupedEntries = groupEntriesByPlace(combinedEntries);
+  const expectedTotalPricePence = getExpectedGroupPricePence(combinedEntries);
 
   function getUncategorizedPlaceSnapshot() {
     const existingRoom =
@@ -239,40 +240,47 @@ export function InventoryWorkspace() {
     await syncNow();
   }
 
-  async function addLowStockItems() {
+  async function clearFullyStockedItems() {
     if (!activeShoppingList) {
       return;
     }
 
-    const timestamp = getTimestamp();
-    const existingItemIds = new Set(
-      activeEntries.filter((entry) => !entry.checkedAt).map((entry) => entry.itemId),
+    const entriesToClear = combinedEntries.filter(
+      (entry) =>
+        !entry.checkedAt &&
+        entry.item &&
+        entry.item.actualStock >= entry.item.desiredStock,
     );
 
-    for (const item of lowStockItems) {
-      if (existingItemIds.has(item.id)) {
+    if (entriesToClear.length === 0) {
+      setMessage("Nothing to clear yet");
+      return;
+    }
+
+    for (const entry of entriesToClear) {
+      const persistedEntry = await ensurePersistedShoppingEntry(entry);
+      if (!persistedEntry) {
         continue;
       }
 
+      const updatedAt = getTimestamp();
       const nextEntry = {
-        id: getId(),
-        listId: activeShoppingList.id,
-        userId: item.userId,
-        itemId: item.id,
-        recipeId: null,
-        label: item.name,
-        sourceType: "low-stock" as const,
-        quantity: Math.max(item.desiredStock - item.actualStock, 1),
-        unitLabel: null,
-        checkedAt: null,
-        createdAt: timestamp,
-        updatedAt: timestamp,
+        ...persistedEntry,
+        checkedAt: updatedAt,
+        updatedAt,
       };
 
       await applyShoppingListEntryLocally(nextEntry);
-      await enqueueMutation(buildMutation("shopping-list-entry", "upsert", nextEntry, timestamp));
+      await enqueueMutation(
+        buildMutation("shopping-list-entry", "upsert", nextEntry, updatedAt),
+      );
     }
 
+    setMessage(
+      entriesToClear.length === 1
+        ? "Cleared 1 fully stocked item"
+        : `Cleared ${entriesToClear.length} fully stocked items`,
+    );
     await syncNow();
   }
 
@@ -337,7 +345,6 @@ export function InventoryWorkspace() {
       return;
     }
 
-    const normalizedName = name.toLowerCase();
     const existingItem = exactQuickAddMatch;
     const timestamp = getTimestamp();
     let item = existingItem;
@@ -544,6 +551,11 @@ export function InventoryWorkspace() {
             <h2 className="mt-1 text-2xl font-semibold text-[color:var(--color-ink)]">
               Shopping List
             </h2>
+            {expectedTotalPricePence != null ? (
+              <p className="mt-2 text-sm font-medium text-[color:var(--color-ink-soft)]">
+                Expected total {formatCurrencyFromPence(expectedTotalPricePence)}
+              </p>
+            ) : null}
           </div>
           <label className="flex min-w-[15rem] flex-col gap-2 text-sm text-[color:var(--color-ink-soft)]">
             <span className="text-xs uppercase tracking-[0.18em]">Categorise by room</span>
@@ -638,11 +650,11 @@ export function InventoryWorkspace() {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => startTransition(() => void addLowStockItems())}
+            onClick={() => startTransition(() => void clearFullyStockedItems())}
             className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
           >
             <CheckSquare className="size-4" />
-            Save low stock items
+            Clear fully stocked items
           </button>
           <button
             type="button"
@@ -782,6 +794,16 @@ function ShoppingSection({
                               ? ` · ${entry.item.actualStock}/${entry.item.desiredStock} in stock`
                               : ""}
                           </p>
+                          {entry.plannedRecipeName ? (
+                            <p
+                              className={cn(
+                                "mt-1 text-sm text-[color:var(--color-ink-soft)]",
+                                isChecked && "line-through decoration-2 opacity-70",
+                              )}
+                            >
+                              Linked meal: {entry.plannedRecipeName}
+                            </p>
+                          ) : null}
                           {expectedEntryPricePence != null ? (
                             <p
                               className={cn(
