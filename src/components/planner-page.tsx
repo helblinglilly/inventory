@@ -261,10 +261,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
             <p className="text-[11px] uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
               Selected meal
             </p>
-            <h4 className="mt-1 text-base font-semibold text-[color:var(--color-ink)]">
-              {formatDateLabel(new Date(`${selectedDateKey}T12:00:00`))}
-            </h4>
-            <p className="mt-3 text-sm font-medium text-[color:var(--color-ink)]">
+            <p className="mt-2 text-lg font-semibold leading-tight text-[color:var(--color-ink)]">
               {selectedRecipe?.name ?? selectedPlan?.notes ?? "No meal planned yet"}
             </p>
             {selectedRecipe && selectedPlan?.notes ? (
