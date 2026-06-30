@@ -454,6 +454,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
                 <input
                   type="number"
                   min={0}
+                  step="0.01"
                   value={desiredStock}
                   onChange={(event) => setDesiredStock(Number(event.target.value))}
                   placeholder="Desired stock"
@@ -462,6 +463,7 @@ export function RoomDetailPage({ roomId }: RoomDetailPageProps) {
                 <input
                   type="number"
                   min={0}
+                  step="0.01"
                   value={actualStock}
                   onChange={(event) => setActualStock(Number(event.target.value))}
                   placeholder="Actual stock"

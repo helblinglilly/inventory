@@ -31,8 +31,8 @@ export const itemSchema = z.object({
   pricePaidPence: z.number().int().nonnegative().nullable().optional(),
   isStaple: z.boolean().default(false),
   trackPriceHistory: z.boolean().default(false),
-  desiredStock: z.number().int().nonnegative(),
-  actualStock: z.number().int().nonnegative(),
+  desiredStock: z.number().nonnegative(),
+  actualStock: z.number().nonnegative(),
   createdAt: z.number(),
   updatedAt: z.number(),
 });

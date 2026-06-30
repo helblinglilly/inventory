@@ -67,8 +67,8 @@ export const items = sqliteTable(
     trackPriceHistory: integer("track_price_history", { mode: "boolean" })
       .notNull()
       .default(false),
-    desiredStock: integer("desired_stock").notNull().default(1),
-    actualStock: integer("actual_stock").notNull().default(0),
+    desiredStock: real("desired_stock").notNull().default(1),
+    actualStock: real("actual_stock").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp_ms" })
       .notNull()
       .default(sql`(unixepoch() * 1000)`),

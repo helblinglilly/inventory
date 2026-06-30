@@ -396,6 +396,7 @@ function ItemEditorForm({
             <input
               type="number"
               min={0}
+              step="0.01"
               value={desiredStock}
               onChange={(event) => setDesiredStock(Number(event.target.value))}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
@@ -406,6 +407,7 @@ function ItemEditorForm({
             <input
               type="number"
               min={0}
+              step="0.01"
               value={actualStock}
               onChange={(event) => setActualStock(Number(event.target.value))}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"

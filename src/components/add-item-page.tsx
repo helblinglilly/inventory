@@ -155,6 +155,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
               <input
                 type="number"
                 min={0}
+                step="0.01"
                 value={itemDraft.desiredStock}
                 onChange={(event) =>
                   setItemDraft((current) => ({
@@ -170,6 +171,7 @@ export function AddItemPage({ userId }: AddItemPageProps) {
               <input
                 type="number"
                 min={0}
+                step="0.01"
                 value={itemDraft.actualStock}
                 onChange={(event) =>
                   setItemDraft((current) => ({
