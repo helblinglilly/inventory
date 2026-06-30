@@ -1,7 +1,16 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, Loader2, Save, ShoppingBasket, Trash2 } from "lucide-react";
+import {
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Save,
+  ShoppingBasket,
+  Trash2,
+} from "lucide-react";
 import {
   applyMealPlanLocally,
   applyShoppingListEntryLocally,
@@ -362,22 +371,38 @@ function PlannerSidebar({
               getRecipeCostPence(recipe, recipeIngredients, items),
             );
             return (
-              <button
+              <div
                 key={recipe.id}
-                type="button"
-                onClick={() => void onChooseRecipe(recipe.id, notes)}
                 className={[
-                  "w-full rounded-[1.5rem] border px-4 py-4 text-left transition",
+                  "rounded-[1.5rem] border px-4 py-4 transition",
                   isSelectedRecipe
                     ? "border-[color:var(--color-forest)] bg-[color:var(--color-panel-muted)] shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]"
                     : "border-black/10 bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
                 ].join(" ")}
               >
-                <p className="text-sm font-semibold text-[color:var(--color-ink)]">{recipe.name}</p>
-                <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-                  {mealCost ?? "No meal cost yet"}
-                </p>
-              </button>
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => void onChooseRecipe(recipe.id, notes)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="text-sm font-semibold text-[color:var(--color-ink)]">
+                      {recipe.name}
+                    </p>
+                    <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                      {mealCost ?? "No meal cost yet"}
+                    </p>
+                  </button>
+                  <Link
+                    href={`/app/recipe/${recipe.id}`}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-[color:var(--color-ink-soft)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+                    aria-label={`Open ${recipe.name}`}
+                  >
+                    Open
+                    <ArrowUpRight className="size-3.5" />
+                  </Link>
+                </div>
+              </div>
             );
           })
         )}
