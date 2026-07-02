@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 export const auth = betterAuth({
   appName: "Inventory",
   baseURL: env.BETTER_AUTH_URL,
+  trustedOrigins: [env.BETTER_AUTH_URL, "https://inventory.helbling.uk"],
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, {
     provider: "sqlite",

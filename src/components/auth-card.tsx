@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { startTransition, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -10,12 +10,15 @@ type Mode = "sign-in" | "sign-up";
 export function AuthCard() {
   const [mode, setMode] = useState<Mode>("sign-in");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   async function submit() {
+    const email = emailRef.current?.value ?? "";
+    const password = passwordRef.current?.value ?? "";
+
     setIsPending(true);
     setMessage(null);
 
@@ -98,10 +101,10 @@ export function AuthCard() {
             Email
           </span>
           <input
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            ref={emailRef}
             placeholder="you@example.com"
             type="email"
+            autoComplete="email"
             className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none ring-0 transition focus:border-[color:var(--color-forest)]"
           />
         </label>
@@ -111,10 +114,10 @@ export function AuthCard() {
             Password
           </span>
           <input
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            ref={passwordRef}
             placeholder="At least 8 characters"
             type="password"
+            autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
             className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none ring-0 transition focus:border-[color:var(--color-forest)]"
           />
         </label>
