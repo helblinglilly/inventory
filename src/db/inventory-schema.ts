@@ -5,7 +5,9 @@ import {
   real,
   sqliteTable,
   text,
+  uniqueIndex,
 } from "drizzle-orm/sqlite-core";
+import { user } from "@/db/auth-schema";
 
 export const rooms = sqliteTable(
   "inventory_room",
@@ -230,6 +232,56 @@ export const mealPlans = sqliteTable(
   (table) => [
     index("meal_plan_user_id_idx").on(table.userId),
     index("meal_plan_planned_for_idx").on(table.plannedFor),
+  ],
+);
+
+export const inventoryShares = sqliteTable(
+  "inventory_share",
+  {
+    id: text("id").primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    memberUserId: text("member_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    invitedByUserId: text("invited_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [
+    index("inventory_share_owner_user_id_idx").on(table.ownerUserId),
+    uniqueIndex("inventory_share_member_user_id_uidx").on(table.memberUserId),
+    uniqueIndex("inventory_share_owner_member_uidx").on(table.ownerUserId, table.memberUserId),
+  ],
+);
+
+export const inventoryInvites = sqliteTable(
+  "inventory_invite",
+  {
+    id: text("id").primaryKey(),
+    ownerUserId: text("owner_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    email: text("email").notNull().unique(),
+    invitedByUserId: text("invited_by_user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+  },
+  (table) => [
+    index("inventory_invite_owner_user_id_idx").on(table.ownerUserId),
   ],
 );
 

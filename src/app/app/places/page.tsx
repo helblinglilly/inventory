@@ -1,7 +1,7 @@
 import { PlacesPage } from "@/components/places-page";
-import { requireServerSession } from "@/lib/session";
+import { requireServerInventoryAccess } from "@/lib/session";
 
 export default async function PlacesRoute() {
-  const session = await requireServerSession();
-  return <PlacesPage userId={session.user.id} />;
+  const { access } = await requireServerInventoryAccess();
+  return <PlacesPage userId={access.inventoryUserId} />;
 }

@@ -1,6 +1,9 @@
 "use client";
 
 import type {
+  InventoryAccessRecord,
+  InventoryInviteRecord,
+  InventoryMemberRecord,
   ItemRecord,
   MealPlanRecord,
   PlaceRecord,
@@ -13,6 +16,9 @@ import type {
 } from "@/features/inventory/types";
 
 export type InventoryStoreState = {
+  access: InventoryAccessRecord | null;
+  sharedMembers: InventoryMemberRecord[];
+  pendingInvites: InventoryInviteRecord[];
   rooms: RoomRecord[];
   places: PlaceRecord[];
   items: ItemRecord[];
@@ -28,6 +34,9 @@ export type InventoryStoreState = {
 };
 
 const EMPTY_STATE: InventoryStoreState = {
+  access: null,
+  sharedMembers: [],
+  pendingInvites: [],
   rooms: [],
   places: [],
   items: [],

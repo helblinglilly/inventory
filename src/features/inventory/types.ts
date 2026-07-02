@@ -114,7 +114,36 @@ export const mutationSchema = z.object({
   queuedAt: z.number(),
 });
 
+export const inventoryAccessSchema = z.object({
+  inventoryUserId: z.string(),
+  isOwner: z.boolean(),
+  ownerName: z.string(),
+  ownerEmail: z.string(),
+  viewerUserId: z.string(),
+  viewerName: z.string(),
+  viewerEmail: z.string(),
+});
+
+export const inventoryMemberSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(["owner", "member"]),
+  joinedAt: z.number(),
+});
+
+export const inventoryInviteSchema = z.object({
+  id: z.string(),
+  email: z.string(),
+  inviteUrl: z.string(),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
 export const bootstrapResponseSchema = z.object({
+  access: inventoryAccessSchema,
+  sharedMembers: z.array(inventoryMemberSchema).default([]),
+  pendingInvites: z.array(inventoryInviteSchema).default([]),
   rooms: z.array(roomSchema),
   places: z.array(placeSchema),
   items: z.array(itemSchema),
@@ -135,4 +164,7 @@ export type RecipeRecord = z.infer<typeof recipeSchema>;
 export type RecipeIngredientRecord = z.infer<typeof recipeIngredientSchema>;
 export type MealPlanRecord = z.infer<typeof mealPlanSchema>;
 export type SyncMutation = z.infer<typeof mutationSchema>;
+export type InventoryAccessRecord = z.infer<typeof inventoryAccessSchema>;
+export type InventoryMemberRecord = z.infer<typeof inventoryMemberSchema>;
+export type InventoryInviteRecord = z.infer<typeof inventoryInviteSchema>;
 export type BootstrapResponse = z.infer<typeof bootstrapResponseSchema>;

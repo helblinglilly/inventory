@@ -1,7 +1,7 @@
 import { PlannerPage } from "@/components/planner-page";
-import { requireServerSession } from "@/lib/session";
+import { requireServerInventoryAccess } from "@/lib/session";
 
 export default async function PlannerRoute() {
-  const session = await requireServerSession();
-  return <PlannerPage userId={session.user.id} />;
+  const { access } = await requireServerInventoryAccess();
+  return <PlannerPage userId={access.inventoryUserId} />;
 }

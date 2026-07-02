@@ -1,7 +1,7 @@
 import { RecipesPage } from "@/components/recipes-page";
-import { requireServerSession } from "@/lib/session";
+import { requireServerInventoryAccess } from "@/lib/session";
 
 export default async function RecipesRoute() {
-  const session = await requireServerSession();
-  return <RecipesPage userId={session.user.id} />;
+  const { access } = await requireServerInventoryAccess();
+  return <RecipesPage userId={access.inventoryUserId} />;
 }

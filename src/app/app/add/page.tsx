@@ -1,7 +1,7 @@
 import { AddItemPage } from "@/components/add-item-page";
-import { requireServerSession } from "@/lib/session";
+import { requireServerInventoryAccess } from "@/lib/session";
 
 export default async function AddRoute() {
-  const session = await requireServerSession();
-  return <AddItemPage userId={session.user.id} />;
+  const { access } = await requireServerInventoryAccess();
+  return <AddItemPage userId={access.inventoryUserId} />;
 }

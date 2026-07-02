@@ -25,8 +25,16 @@ let flushPromise: Promise<void> | null = null;
 
 function getBootstrapResponseFromStore(): BootstrapResponse {
   const snapshot = getInventoryStoreSnapshot();
+  const access = snapshot.access;
+
+  if (!access) {
+    throw new Error("Inventory access is not available yet");
+  }
 
   return {
+    access,
+    sharedMembers: snapshot.sharedMembers,
+    pendingInvites: snapshot.pendingInvites,
     rooms: snapshot.rooms,
     places: snapshot.places,
     items: snapshot.items,
@@ -42,6 +50,9 @@ function getBootstrapResponseFromStore(): BootstrapResponse {
 function replaceBootstrapData(snapshot: BootstrapResponse) {
   setInventoryStoreState((currentState) => ({
     ...currentState,
+    access: snapshot.access,
+    sharedMembers: snapshot.sharedMembers,
+    pendingInvites: snapshot.pendingInvites,
     rooms: snapshot.rooms,
     places: snapshot.places,
     items: snapshot.items,

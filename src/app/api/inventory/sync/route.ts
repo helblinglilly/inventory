@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
@@ -16,6 +16,8 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { bootstrapResponseSchema } from "@/features/inventory/types";
 import { getId } from "@/features/inventory/helpers";
+import { getInventoryBootstrapPayload } from "@/lib/inventory-bootstrap";
+import { getInventoryAccessForUser } from "@/lib/inventory-sharing";
 
 const syncSchema = z.object({
   mutations: z.array(
@@ -38,28 +40,6 @@ const syncSchema = z.object({
   ),
 });
 
-async function ensureActiveShoppingList(userId: string) {
-  const existingLists = await db
-    .select()
-    .from(shoppingLists)
-    .where(eq(shoppingLists.userId, userId))
-    .orderBy(asc(shoppingLists.createdAt));
-
-  if (existingLists.some((entry) => entry.status === "active")) {
-    return;
-  }
-
-  const now = Date.now();
-  await db.insert(shoppingLists).values({
-    id: getId(),
-    userId,
-    name: "Current list",
-    status: "active",
-    createdAt: new Date(now),
-    updatedAt: new Date(now),
-  });
-}
-
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
     headers: request.headers,
@@ -70,7 +50,8 @@ export async function POST(request: Request) {
   }
 
   const body = syncSchema.parse(await request.json());
-  const userId = session.user.id;
+  const access = await getInventoryAccessForUser(session.user.id);
+  const userId = access.inventoryUserId;
 
   await db.transaction(async (tx) => {
     for (const mutation of body.mutations) {
@@ -398,119 +379,9 @@ export async function POST(request: Request) {
     }
   });
 
-  await ensureActiveShoppingList(userId);
-
-  const [
-    roomRows,
-    placeRows,
-    itemRows,
-    itemPlaceLinkRows,
-    shoppingListRows,
-    shoppingListEntryRows,
-    recipeRows,
-    recipeIngredientRows,
-    mealPlanRows,
-  ] = await Promise.all([
-    db
-      .select()
-      .from(rooms)
-      .where(eq(rooms.userId, userId))
-      .orderBy(asc(rooms.sortOrder), asc(rooms.name)),
-    db
-      .select()
-      .from(places)
-      .where(eq(places.userId, userId))
-      .orderBy(asc(places.sortOrder), asc(places.name)),
-    db
-      .select()
-      .from(items)
-      .where(eq(items.userId, userId))
-      .orderBy(asc(items.name)),
-    db
-      .select()
-      .from(itemPlaceLinks)
-      .where(eq(itemPlaceLinks.userId, userId))
-      .orderBy(asc(itemPlaceLinks.createdAt)),
-    db
-      .select()
-      .from(shoppingLists)
-      .where(eq(shoppingLists.userId, userId))
-      .orderBy(asc(shoppingLists.createdAt)),
-    db
-      .select()
-      .from(shoppingListEntries)
-      .where(eq(shoppingListEntries.userId, userId))
-      .orderBy(asc(shoppingListEntries.createdAt)),
-    db
-      .select()
-      .from(recipes)
-      .where(eq(recipes.userId, userId))
-      .orderBy(asc(recipes.name)),
-    db
-      .select()
-      .from(recipeIngredients)
-      .where(eq(recipeIngredients.userId, userId))
-      .orderBy(asc(recipeIngredients.createdAt)),
-    db
-      .select()
-      .from(mealPlans)
-      .where(eq(mealPlans.userId, userId))
-      .orderBy(asc(mealPlans.plannedFor)),
-  ]);
-
-  const itemPlaceIdsByItemId = new Map<string, string[]>();
-  for (const link of itemPlaceLinkRows) {
-    const current = itemPlaceIdsByItemId.get(link.itemId) ?? [];
-    current.push(link.placeId);
-    itemPlaceIdsByItemId.set(link.itemId, current);
-  }
-
-  const payload = bootstrapResponseSchema.parse({
-    rooms: roomRows.map((room) => ({
-      ...room,
-      createdAt: room.createdAt.getTime(),
-      updatedAt: room.updatedAt.getTime(),
-    })),
-    places: placeRows.map((place) => ({
-      ...place,
-      createdAt: place.createdAt.getTime(),
-      updatedAt: place.updatedAt.getTime(),
-    })),
-    items: itemRows.map((item) => ({
-      ...item,
-      placeIds: itemPlaceIdsByItemId.get(item.id) ?? [item.placeId],
-      createdAt: item.createdAt.getTime(),
-      updatedAt: item.updatedAt.getTime(),
-    })),
-    shoppingLists: shoppingListRows.map((list) => ({
-      ...list,
-      clearedAt: list.clearedAt?.getTime() ?? null,
-      createdAt: list.createdAt.getTime(),
-      updatedAt: list.updatedAt.getTime(),
-    })),
-    shoppingListEntries: shoppingListEntryRows.map((entry) => ({
-      ...entry,
-      checkedAt: entry.checkedAt?.getTime() ?? null,
-      createdAt: entry.createdAt.getTime(),
-      updatedAt: entry.updatedAt.getTime(),
-    })),
-    recipes: recipeRows.map((recipe) => ({
-      ...recipe,
-      createdAt: recipe.createdAt.getTime(),
-      updatedAt: recipe.updatedAt.getTime(),
-    })),
-    recipeIngredients: recipeIngredientRows.map((ingredient) => ({
-      ...ingredient,
-      createdAt: ingredient.createdAt.getTime(),
-      updatedAt: ingredient.updatedAt.getTime(),
-    })),
-    mealPlans: mealPlanRows.map((mealPlan) => ({
-      ...mealPlan,
-      createdAt: mealPlan.createdAt.getTime(),
-      updatedAt: mealPlan.updatedAt.getTime(),
-    })),
-    serverTime: Date.now(),
-  });
+  const payload = bootstrapResponseSchema.parse(
+    await getInventoryBootstrapPayload(access),
+  );
 
   return NextResponse.json(payload);
 }
