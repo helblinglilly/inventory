@@ -15,12 +15,16 @@ type SharingPanelProps = {
   access: InventoryAccessRecord;
   sharedMembers: InventoryMemberRecord[];
   pendingInvites: InventoryInviteRecord[];
+  title?: string;
+  description?: string;
 };
 
 export function SharingPanel({
   access,
   sharedMembers,
   pendingInvites,
+  title,
+  description,
 }: SharingPanelProps) {
   const [inviteEmail, setInviteEmail] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -82,14 +86,16 @@ export function SharingPanel({
             <p className="text-xs uppercase tracking-[0.2em]">Shared access</p>
           </div>
           <h2 className="mt-2 text-2xl font-semibold text-[color:var(--color-ink)]">
-            {access.isOwner
-              ? "Invite someone into this inventory"
-              : `Shared with ${access.ownerName}`}
+            {title ??
+              (access.isOwner
+                ? "Invite someone into this inventory"
+                : `Shared with ${access.ownerName}`)}
           </h2>
           <p className="mt-2 text-sm leading-6 text-[color:var(--color-ink-soft)]">
-            {access.isOwner
-              ? "Create a private invite link for your household partner. They can sign in with an existing account or create one through the invite."
-              : `You are editing ${access.ownerName}'s inventory as ${access.viewerName}.`}
+            {description ??
+              (access.isOwner
+                ? "Create a private invite link for your household partner. They can sign in with an existing account or create one through the invite."
+                : `You are editing ${access.ownerName}'s inventory as ${access.viewerName}.`)}
           </p>
         </div>
 

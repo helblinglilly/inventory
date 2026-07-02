@@ -21,6 +21,15 @@ export default async function AppLayout({
                 Home Inventory
               </h1>
             </Link>
+
+            <nav className="flex items-center gap-2">
+              <Link
+                href="/app/invite"
+                className="inline-flex items-center rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
+              >
+                Invite
+              </Link>
+            </nav>
           </div>
         </div>
       </header>

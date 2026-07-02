@@ -17,7 +17,6 @@ import {
   sortLowStockItems,
   toDateKey,
 } from "@/features/inventory/helpers";
-import { SharingPanel } from "@/components/sharing-panel";
 import {
   applyItemLocally,
   applyPlaceLocally,
@@ -39,9 +38,6 @@ export function InventoryWorkspace() {
     shoppingListEntries,
     recipes,
     mealPlans,
-    access,
-    sharedMembers,
-    pendingInvites,
     isBootstrapping,
     syncNow,
   } = useInventoryData();
@@ -509,14 +505,6 @@ export function InventoryWorkspace() {
 
   return (
     <div className="space-y-6">
-      {access ? (
-        <SharingPanel
-          access={access}
-          sharedMembers={sharedMembers}
-          pendingInvites={pendingInvites}
-        />
-      ) : null}
-
       <section className="rounded-[2rem] border border-black/5 bg-white/85 p-5 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] backdrop-blur">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div>
