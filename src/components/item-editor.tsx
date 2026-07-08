@@ -120,28 +120,80 @@ function ItemEditorForm({
   const locationLabel = getLocationLabel(item, places, rooms);
   const activeShoppingList = getActiveShoppingList(shoppingLists);
 
-  function addLinkedPlace() {
-    if (!activePlaceId) {
+  function buildLocationPlaceIds(nextPrimaryPlaceId: string, placeIds: string[]) {
+    return [
+      nextPrimaryPlaceId,
+      ...placeIds.filter((placeId) => placeId !== nextPrimaryPlaceId && placeId !== placeIds[0]),
+    ];
+  }
+
+  async function persistPlaceIds(nextPlaceIds: string[], successMessage = "Location saved") {
+    if (nextPlaceIds.length === 0) {
       return;
     }
 
-    setLinkedPlaceIds((current) =>
-      current.includes(activePlaceId) ? current : [...current, activePlaceId],
-    );
+    setIsSaving(true);
+    setMessage(null);
+
+    try {
+      const timestamp = getTimestamp();
+      const nextItem: ItemRecord = {
+        ...item,
+        placeId: nextPlaceIds[0],
+        placeIds: nextPlaceIds,
+        updatedAt: timestamp,
+      };
+
+      await applyItemLocally(nextItem);
+      await enqueueMutation(buildMutation("item", "upsert", nextItem, timestamp));
+      await syncNow();
+
+      setMessage(successMessage);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Unable to save location");
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  function removeLinkedPlace(placeId: string) {
-    setLinkedPlaceIds((current) => current.filter((entry) => entry !== placeId));
+  async function savePrimaryPlace(nextPrimaryPlaceId: string) {
+    const nextPlaceIds = buildLocationPlaceIds(nextPrimaryPlaceId, linkedPlaceIds);
+    setLinkedPlaceIds(nextPlaceIds);
+    await persistPlaceIds(nextPlaceIds);
+  }
+
+  async function addLinkedPlace() {
+    if (!activePlaceId || linkedPlaceIds.includes(activePlaceId)) {
+      return;
+    }
+
+    const nextPlaceIds = [...linkedPlaceIds, activePlaceId];
+    setLinkedPlaceIds(nextPlaceIds);
+    await persistPlaceIds(nextPlaceIds, "Places saved");
+  }
+
+  async function removeLinkedPlace(placeId: string) {
+    if (linkedPlaceIds.length === 1) {
+      setMessage("Items need at least one place");
+      return;
+    }
+
+    const nextPlaceIds = linkedPlaceIds.filter((entry) => entry !== placeId);
+    const nextPrimaryPlaceId = nextPlaceIds[0] ?? "";
+    const nextPrimaryPlace = places.find((entry) => entry.id === nextPrimaryPlaceId);
+
+    setLinkedPlaceIds(nextPlaceIds);
+    setSelectedPlaceId(nextPrimaryPlaceId);
+
+    if (nextPrimaryPlace) {
+      setSelectedRoomId(nextPrimaryPlace.roomId);
+    }
+
+    await persistPlaceIds(nextPlaceIds, "Places saved");
   }
 
   async function saveItem() {
-    const nextPlaceIds = linkedPlaceIds.includes(activePlaceId)
-      ? linkedPlaceIds
-      : activePlaceId
-        ? [...linkedPlaceIds, activePlaceId]
-        : linkedPlaceIds;
-
-    if (nextPlaceIds.length === 0) {
+    if (linkedPlaceIds.length === 0) {
       return;
     }
 
@@ -177,8 +229,8 @@ function ItemEditorForm({
       const timestamp = getTimestamp();
       const nextItem: ItemRecord = {
         ...item,
-        placeId: nextPlaceIds[0],
-        placeIds: nextPlaceIds,
+        placeId: linkedPlaceIds[0],
+        placeIds: linkedPlaceIds,
         name: name.trim(),
         notes: notes.trim() || undefined,
         desiredStock,
@@ -318,7 +370,22 @@ function ItemEditorForm({
           <Field label="Room">
             <select
               value={selectedRoomId}
-              onChange={(event) => setSelectedRoomId(event.target.value)}
+              onChange={(event) => {
+                const nextRoomId = event.target.value;
+                const nextPlaces = places.filter((place) => place.roomId === nextRoomId);
+                const nextPlaceId = nextPlaces[0]?.id ?? "";
+
+                setSelectedRoomId(nextRoomId);
+                setSelectedPlaceId(nextPlaceId);
+
+                if (!nextPlaceId) {
+                  setMessage("This room has no places yet");
+                  return;
+                }
+
+                void savePrimaryPlace(nextPlaceId);
+              }}
+              disabled={isSaving}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
             >
               {rooms.map((room) => (
@@ -334,8 +401,17 @@ function ItemEditorForm({
               <div className="flex flex-col gap-3 sm:flex-row">
                 <select
                   value={activePlaceId}
-                  onChange={(event) => setSelectedPlaceId(event.target.value)}
-                  disabled={availablePlaces.length === 0}
+                  onChange={(event) => {
+                    const nextPlaceId = event.target.value;
+                    setSelectedPlaceId(nextPlaceId);
+
+                    if (!nextPlaceId) {
+                      return;
+                    }
+
+                    void savePrimaryPlace(nextPlaceId);
+                  }}
+                  disabled={availablePlaces.length === 0 || isSaving}
                   className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
                 >
                   {availablePlaces.length === 0 ? (
@@ -349,8 +425,8 @@ function ItemEditorForm({
                 </select>
                 <button
                   type="button"
-                  onClick={addLinkedPlace}
-                  disabled={!activePlaceId}
+                  onClick={() => void addLinkedPlace()}
+                  disabled={!activePlaceId || isSaving}
                   className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
                 >
                   Link
@@ -361,7 +437,8 @@ function ItemEditorForm({
                   <button
                     key={place.id}
                     type="button"
-                    onClick={() => removeLinkedPlace(place.id)}
+                    onClick={() => void removeLinkedPlace(place.id)}
+                    disabled={isSaving}
                     className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-2 text-xs font-medium text-[color:var(--color-ink)]"
                   >
                     {rooms.find((room) => room.id === place.roomId)?.name ?? "Unknown room"} /{" "}
@@ -381,8 +458,8 @@ function ItemEditorForm({
                 {linkedPlaces.length === 0 ? (
                   <button
                     type="button"
-                    onClick={addLinkedPlace}
-                    disabled={!activePlaceId}
+                    onClick={() => void addLinkedPlace()}
+                    disabled={!activePlaceId || isSaving}
                     className="text-sm text-[color:var(--color-ink-soft)]"
                   >
                     No linked places yet.
