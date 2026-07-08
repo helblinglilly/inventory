@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { startTransition, useState } from "react";
-import { ChefHat, ListRestart, Loader2, Minus, PackagePlus, Plus } from "lucide-react";
+import {
+  ChefHat,
+  ChevronRight,
+  ListRestart,
+  Loader2,
+  Minus,
+  PackagePlus,
+  Plus,
+} from "lucide-react";
 import {
   buildMutation,
   getActiveShoppingList,
@@ -663,6 +671,22 @@ function ShoppingSection({
   onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
   onAdjustItemStock: (entry: ShoppingViewEntry, delta: number) => Promise<void>;
 }) {
+  const [expandedPlaces, setExpandedPlaces] = useState<Set<string>>(() => new Set());
+
+  function togglePlace(placeLabel: string) {
+    setExpandedPlaces((current) => {
+      const next = new Set(current);
+
+      if (next.has(placeLabel)) {
+        next.delete(placeLabel);
+      } else {
+        next.add(placeLabel);
+      }
+
+      return next;
+    });
+  }
+
   return (
     <>
       <div className="mt-4 space-y-3">
@@ -673,156 +697,178 @@ function ShoppingSection({
         ) : (
           groupedEntries.map((group) => {
             const expectedGroupPricePence = getExpectedGroupPricePence(group.entries);
+            const groupTitle = getShoppingGroupTitle(group.placeLabel);
+            const itemCountLabel = `${group.entries.length} item${group.entries.length === 1 ? "" : "s"}`;
+            const isExpanded = expandedPlaces.has(group.placeLabel);
 
             return (
               <div
                 key={group.placeLabel}
                 className="rounded-[1.5rem] border border-black/5 bg-white/75 p-3"
               >
-              <div className="flex items-center justify-between gap-3 px-1 pb-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
-                    {group.placeLabel}
-                  </p>
-                  {expectedGroupPricePence != null ? (
-                    <p className="mt-1 text-sm font-medium text-[color:var(--color-ink)]">
-                      Expected total {formatCurrencyFromPence(expectedGroupPricePence)}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--color-ink)]">
-                  {group.entries.filter((entry) => !entry.checkedAt).length} open
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {group.entries.map((entry) => {
-                  const itemEntryCount = entry.itemId
-                    ? (itemEntryCounts.get(entry.itemId) ?? 0)
-                    : 0;
-                  const showCheckbox = !entry.itemId || itemEntryCount <= 1;
-                  const isChecked = Boolean(entry.checkedAt);
-                  const expectedEntryPricePence = getExpectedEntryPricePence(entry);
-
-                  return (
-                    <article
-                      key={entry.id}
+                <button
+                  type="button"
+                  onClick={() => togglePlace(group.placeLabel)}
+                  aria-expanded={isExpanded}
+                  className="flex w-full items-center justify-between gap-3 rounded-[1.1rem] px-1 py-1 text-left transition hover:bg-black/[0.03]"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <ChevronRight
                       className={cn(
-                        "rounded-[1.25rem] border px-4 py-4 transition",
-                        isChecked
-                          ? "border-black/5 bg-white/70 opacity-70"
-                          : "border-amber-200 bg-amber-50/80",
+                        "size-4 shrink-0 text-[color:var(--color-ink-soft)] transition-transform",
+                        isExpanded && "rotate-90",
                       )}
-                    >
-                      <div className="flex items-start gap-4">
-                        {showCheckbox ? (
-                          <input
-                            type="checkbox"
-                            checked={Boolean(entry.checkedAt)}
-                            onChange={(event) =>
-                              void onToggleEntryChecked(entry, event.target.checked)
-                            }
-                            className="mt-1 size-5 rounded border-black/20"
-                          />
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-semibold text-[color:var(--color-ink)]">
+                        {groupTitle}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-[color:var(--color-ink-soft)]">
+                        <span>{itemCountLabel}</span>
+                        {expectedGroupPricePence != null ? (
+                          <>
+                            <span aria-hidden="true">•</span>
+                            <span>{formatCurrencyFromPence(expectedGroupPricePence)}</span>
+                          </>
                         ) : null}
-                        <div className="min-w-0 flex-1">
-                          {entry.item ? (
-                            <Link
-                              href={`/app/items/${entry.item.id}`}
-                              className={cn(
-                                "text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline",
-                                isChecked && "line-through decoration-2 opacity-70",
-                              )}
-                            >
-                              {entry.label}
-                            </Link>
-                          ) : (
-                            <h3
-                              className={cn(
-                                "text-base font-semibold text-[color:var(--color-ink)]",
-                                isChecked && "line-through decoration-2 opacity-70",
-                              )}
-                            >
-                              {entry.label}
-                            </h3>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--color-ink)]">
+                    {isExpanded ? "Collapse" : "Expand"}
+                  </div>
+                </button>
+
+                {isExpanded ? (
+                  <div className="space-y-3 pt-3">
+                    {group.entries.map((entry) => {
+                      const itemEntryCount = entry.itemId
+                        ? (itemEntryCounts.get(entry.itemId) ?? 0)
+                        : 0;
+                      const showCheckbox = !entry.itemId || itemEntryCount <= 1;
+                      const isChecked = Boolean(entry.checkedAt);
+                      const expectedEntryPricePence = getExpectedEntryPricePence(entry);
+
+                      return (
+                        <article
+                          key={entry.id}
+                          className={cn(
+                            "rounded-[1.25rem] border px-4 py-4 transition",
+                            isChecked
+                              ? "border-black/5 bg-white/70 opacity-70"
+                              : "border-amber-200 bg-amber-50/80",
                           )}
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {entry.sourceType === "manual" ? (
-                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                                Manual item
-                              </span>
+                        >
+                          <div className="flex items-start gap-4">
+                            {showCheckbox ? (
+                              <input
+                                type="checkbox"
+                                checked={Boolean(entry.checkedAt)}
+                                onChange={(event) =>
+                                  void onToggleEntryChecked(entry, event.target.checked)
+                                }
+                                className="mt-1 size-5 rounded border-black/20"
+                              />
                             ) : null}
-                            {entry.plannedUsages.length > 0
-                              ? entry.plannedUsages.map((usage) => (
-                                  <span
-                                    key={`${entry.id}:${usage.recipeId}:${usage.plannedFor}:${usage.quantity}:${usage.unitLabel ?? "x"}`}
-                                    className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]"
-                                  >
-                                    {getUsageDayLabel(usage.plannedFor, todayDateKey)} · {usage.recipeName}
-                                  </span>
-                                ))
-                              : null}
-                            {entry.sourceType === "low-stock" && entry.plannedUsages.length === 0 ? (
-                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
-                                Restock
-                              </span>
-                            ) : null}
-                          </div>
-                          <p
-                            className={cn(
-                              "mt-2 text-sm text-[color:var(--color-ink-soft)]",
-                              isChecked && "line-through decoration-2 opacity-70",
-                            )}
-                          >
-                            {entry.quantity} {entry.unitLabel ?? "x"}
-                          </p>
-                        </div>
-                        {entry.item ? (
-                          <div className="flex shrink-0 flex-col items-end gap-2 text-right">
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void onAdjustItemStock(entry, -1)}
-                                disabled={entry.item.actualStock <= 0}
-                                aria-label={`Remove one ${entry.label} from stock`}
-                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
-                              >
-                                <Minus className="size-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => void onAdjustItemStock(entry, 1)}
-                                aria-label={`Add one ${entry.label} to stock`}
-                                className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
-                              >
-                                <Plus className="size-4" />
-                              </button>
-                            </div>
-                            <p
-                              className={cn(
-                                "text-sm text-[color:var(--color-ink-soft)]",
-                                isChecked && "line-through decoration-2 opacity-70",
+                            <div className="min-w-0 flex-1">
+                              {entry.item ? (
+                                <Link
+                                  href={`/app/items/${entry.item.id}`}
+                                  className={cn(
+                                    "text-base font-semibold text-[color:var(--color-ink)] underline-offset-4 hover:underline",
+                                    isChecked && "line-through decoration-2 opacity-70",
+                                  )}
+                                >
+                                  {entry.label}
+                                </Link>
+                              ) : (
+                                <h3
+                                  className={cn(
+                                    "text-base font-semibold text-[color:var(--color-ink)]",
+                                    isChecked && "line-through decoration-2 opacity-70",
+                                  )}
+                                >
+                                  {entry.label}
+                                </h3>
                               )}
-                            >
-                              {entry.item.actualStock}/{entry.item.desiredStock}
-                            </p>
-                            {expectedEntryPricePence != null ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {entry.sourceType === "manual" ? (
+                                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                                    Manual item
+                                  </span>
+                                ) : null}
+                                {entry.plannedUsages.length > 0
+                                  ? entry.plannedUsages.map((usage) => (
+                                      <span
+                                        key={`${entry.id}:${usage.recipeId}:${usage.plannedFor}:${usage.quantity}:${usage.unitLabel ?? "x"}`}
+                                        className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]"
+                                      >
+                                        {getUsageDayLabel(usage.plannedFor, todayDateKey)} · {usage.recipeName}
+                                      </span>
+                                    ))
+                                  : null}
+                                {entry.sourceType === "low-stock" && entry.plannedUsages.length === 0 ? (
+                                  <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                                    Restock
+                                  </span>
+                                ) : null}
+                              </div>
                               <p
                                 className={cn(
-                                  "text-sm font-medium text-[color:var(--color-ink)]",
+                                  "mt-2 text-sm text-[color:var(--color-ink-soft)]",
                                   isChecked && "line-through decoration-2 opacity-70",
                                 )}
                               >
-                                {formatCurrencyFromPence(expectedEntryPricePence)}
+                                {entry.quantity} {entry.unitLabel ?? "x"}
                               </p>
+                            </div>
+                            {entry.item ? (
+                              <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => void onAdjustItemStock(entry, -1)}
+                                    disabled={entry.item.actualStock <= 0}
+                                    aria-label={`Remove one ${entry.label} from stock`}
+                                    className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
+                                  >
+                                    <Minus className="size-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void onAdjustItemStock(entry, 1)}
+                                    aria-label={`Add one ${entry.label} to stock`}
+                                    className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
+                                  >
+                                    <Plus className="size-4" />
+                                  </button>
+                                </div>
+                                <p
+                                  className={cn(
+                                    "text-sm text-[color:var(--color-ink-soft)]",
+                                    isChecked && "line-through decoration-2 opacity-70",
+                                  )}
+                                >
+                                  {entry.item.actualStock}/{entry.item.desiredStock}
+                                </p>
+                                {expectedEntryPricePence != null ? (
+                                  <p
+                                    className={cn(
+                                      "text-sm font-medium text-[color:var(--color-ink)]",
+                                      isChecked && "line-through decoration-2 opacity-70",
+                                    )}
+                                  >
+                                    {formatCurrencyFromPence(expectedEntryPricePence)}
+                                  </p>
+                                ) : null}
+                              </div>
                             ) : null}
                           </div>
-                        ) : null}
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
             );
           })
@@ -883,6 +929,12 @@ function getExpectedGroupPricePence(entries: ShoppingViewEntry[]) {
   }
 
   return pricedEntries.reduce((total, value) => total + value, 0);
+}
+
+function getShoppingGroupTitle(placeLabel: string) {
+  const [lastSegment] = placeLabel.split(" · ").slice(-1);
+  const segments = lastSegment.split(" / ");
+  return segments[segments.length - 1] ?? placeLabel;
 }
 
 function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
