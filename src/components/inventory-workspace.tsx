@@ -37,6 +37,12 @@ type MealUsage = {
   unitLabel: string | null;
 };
 
+type ShoppingPlaceMeta = {
+  placeLabel: string;
+  roomSortOrder: number;
+  placeSortOrder: number;
+};
+
 export function InventoryWorkspace() {
   const {
     rooms,
@@ -96,25 +102,34 @@ export function InventoryWorkspace() {
     items.find((item) => item.name.trim().toLowerCase() === normalizedQuickItemName) ?? null;
   const derivedLowStockEntries: ShoppingViewEntry[] = lowStockItems
     .filter((item) => !activeEntryItemIds.has(item.id))
-    .map((item) => ({
-      id: `derived-${item.id}`,
-      entryId: null,
-      item,
-      itemId: item.id,
-      recipeId: null,
-      label: item.name,
-      sourceType: "low-stock",
-      quantity: Math.max(item.desiredStock - item.actualStock, 1),
-      unitLabel: null,
-      checkedAt: null,
-      isDerived: true,
-      placeLabel: getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId),
-      plannedUsages: plannedMealUsagesByItem.get(item.id) ?? [],
-    }));
+    .map((item) => {
+      const placeMeta = getShoppingPlaceMeta(item, places, rooms, effectiveShoppingRoomId);
+
+      return {
+        id: `derived-${item.id}`,
+        entryId: null,
+        item,
+        itemId: item.id,
+        recipeId: null,
+        label: item.name,
+        sourceType: "low-stock",
+        quantity: Math.max(item.desiredStock - item.actualStock, 1),
+        unitLabel: null,
+        checkedAt: null,
+        isDerived: true,
+        placeLabel: placeMeta.placeLabel,
+        roomSortOrder: placeMeta.roomSortOrder,
+        placeSortOrder: placeMeta.placeSortOrder,
+        plannedUsages: plannedMealUsagesByItem.get(item.id) ?? [],
+      };
+    });
   const combinedEntries: ShoppingViewEntry[] = [
     ...activeEntries.map((entry) => {
       const item = entry.itemId
         ? (items.find((candidate) => candidate.id === entry.itemId) ?? null)
+        : null;
+      const placeMeta = item
+        ? getShoppingPlaceMeta(item, places, rooms, effectiveShoppingRoomId)
         : null;
 
       return {
@@ -129,9 +144,9 @@ export function InventoryWorkspace() {
         unitLabel: entry.unitLabel ?? null,
         checkedAt: entry.checkedAt ?? null,
         isDerived: false,
-        placeLabel: item
-          ? getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId)
-          : "Unassigned",
+        placeLabel: placeMeta?.placeLabel ?? "Unassigned",
+        roomSortOrder: placeMeta?.roomSortOrder ?? Number.MAX_SAFE_INTEGER,
+        placeSortOrder: placeMeta?.placeSortOrder ?? Number.MAX_SAFE_INTEGER,
         plannedUsages: item ? (plannedMealUsagesByItem.get(item.id) ?? []) : [],
       };
     }),
@@ -830,6 +845,8 @@ type ShoppingViewEntry = {
   checkedAt: number | null;
   isDerived: boolean;
   placeLabel: string;
+  roomSortOrder: number;
+  placeSortOrder: number;
   plannedUsages: MealUsage[];
 };
 
@@ -884,28 +901,69 @@ function groupEntriesByPlace(entries: ShoppingViewEntry[]) {
   }
 
   return [...groups.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
+    .sort(([, leftEntries], [, rightEntries]) => {
+      const leftEntry = leftEntries[0];
+      const rightEntry = rightEntries[0];
+
+      if (leftEntry.roomSortOrder !== rightEntry.roomSortOrder) {
+        return leftEntry.roomSortOrder - rightEntry.roomSortOrder;
+      }
+
+      if (leftEntry.placeSortOrder !== rightEntry.placeSortOrder) {
+        return leftEntry.placeSortOrder - rightEntry.placeSortOrder;
+      }
+
+      return leftEntry.placeLabel.localeCompare(rightEntry.placeLabel);
+    })
     .map(([placeLabel, groupedEntries]) => ({
       placeLabel,
       entries: groupedEntries,
     }));
 }
 
-function getShoppingRoomLabel(
+function getShoppingPlaceMeta(
   item: ReturnType<typeof useInventoryData>["items"][number],
   places: ReturnType<typeof useInventoryData>["places"],
   rooms: ReturnType<typeof useInventoryData>["rooms"],
   roomId: string,
-) {
+) : ShoppingPlaceMeta {
   if (!roomId) {
-    return getLocationLabel(item, places, rooms);
+    const itemPlaces = getItemPlaces(item, places).sort(
+      (left, right) =>
+        left.sortOrder - right.sortOrder ||
+        left.name.localeCompare(right.name),
+    );
+    const primaryPlace = itemPlaces[0] ?? null;
+    const primaryRoom = primaryPlace
+      ? (rooms.find((entry) => entry.id === primaryPlace.roomId) ?? null)
+      : null;
+
+    return {
+      placeLabel: getLocationLabel(
+        {
+          ...item,
+          placeId: primaryPlace?.id ?? item.placeId,
+          placeIds: itemPlaces.map((place) => place.id),
+        },
+        places,
+        rooms,
+      ),
+      roomSortOrder: primaryRoom?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+      placeSortOrder: primaryPlace?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    };
   }
 
   const room = rooms.find((entry) => entry.id === roomId) ?? null;
-  const matchingPlaces = getItemPlaces(item, places).filter((place) => place.roomId === roomId);
+  const matchingPlaces = getItemPlaces(item, places)
+    .filter((place) => place.roomId === roomId)
+    .sort((left, right) => left.sortOrder - right.sortOrder || left.name.localeCompare(right.name));
 
   if (matchingPlaces.length === 0) {
-    return room ? `${room.name} / Unassigned` : "Unassigned";
+    return {
+      placeLabel: room ? `${room.name} / Unassigned` : "Unassigned",
+      roomSortOrder: room?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+      placeSortOrder: Number.MAX_SAFE_INTEGER,
+    };
   }
 
   const scopedItem = {
@@ -914,7 +972,11 @@ function getShoppingRoomLabel(
     placeIds: matchingPlaces.map((place) => place.id),
   };
 
-  return getLocationLabel(scopedItem, places, rooms);
+  return {
+    placeLabel: getLocationLabel(scopedItem, places, rooms),
+    roomSortOrder: room?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    placeSortOrder: matchingPlaces[0]?.sortOrder ?? Number.MAX_SAFE_INTEGER,
+  };
 }
 
 function buildPlannedMealUsagesByItem({
