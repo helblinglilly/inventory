@@ -7,7 +7,6 @@ import { buildMutation, getLocationLabel, getTimestamp, toDateKey } from "@/feat
 import { applyItemLocally, enqueueMutation } from "@/features/inventory/sync";
 import type { ItemRecord, RecipeIngredientRecord, RecipeRecord } from "@/features/inventory/types";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
-import { cn, formatDateLabel } from "@/lib/utils";
 
 type MealUsage = {
   recipeId: string;
@@ -181,15 +180,10 @@ export function ShoppingPrepPage() {
                             {entry.usages.map((usage) => (
                               <span
                                 key={`${entry.item.id}:${usage.recipeId}:${usage.plannedFor}:${usage.quantity}:${usage.unitLabel ?? "x"}`}
-                                className={cn(
-                                  "rounded-full px-3 py-1 text-xs font-medium",
-                                  usage.plannedFor === todayDateKey
-                                    ? "bg-[color:var(--color-clay)] text-white"
-                                    : "bg-white text-[color:var(--color-ink-soft)]",
-                                )}
+                                className="rounded-full bg-white px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]"
                               >
-                                {formatDateLabel(new Date(`${usage.plannedFor}T12:00:00`))} ·{" "}
-                                {usage.recipeName} · {formatUsageQuantity(usage)}
+                                {getUsageDayLabel(usage.plannedFor, todayDateKey)} · {usage.recipeName} ·{" "}
+                                {formatUsageQuantity(usage)}
                               </span>
                             ))}
                           </div>
@@ -337,6 +331,16 @@ function getQuantitySummary(entry: ShoppingPrepEntry) {
 
 function formatUsageQuantity(usage: MealUsage) {
   return `${usage.quantity} ${usage.unitLabel ?? "x"}`;
+}
+
+function getUsageDayLabel(plannedFor: string, todayDateKey: string) {
+  if (plannedFor === todayDateKey) {
+    return "Today";
+  }
+
+  return new Date(`${plannedFor}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+  });
 }
 
 function Loading({ label }: { label: string }) {
