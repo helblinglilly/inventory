@@ -681,11 +681,7 @@ function ShoppingSection({
                         "rounded-[1.25rem] border px-4 py-4 transition",
                         isChecked
                           ? "border-black/5 bg-white/70 opacity-70"
-                          : entry.sourceType === "recipe"
-                            ? "border-[color:var(--color-forest)]/20 bg-[color:var(--color-forest)]/5"
-                            : entry.sourceType === "manual"
-                              ? "border-sky-200 bg-sky-50/80"
-                              : "border-amber-200 bg-amber-50/80",
+                          : "border-amber-200 bg-amber-50/80",
                       )}
                     >
                       <div className="flex items-start gap-4">
@@ -725,10 +721,18 @@ function ShoppingSection({
                               <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
                                 Manual item
                               </span>
+                            ) : entry.sourceType === "low-stock" ? (
+                              <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
+                                Restock
+                              </span>
                             ) : null}
                             {entry.plannedRecipeName ? (
                               <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
-                                {entry.plannedRecipeName}
+                                For {entry.plannedRecipeName}
+                              </span>
+                            ) : entry.sourceType === "recipe" ? (
+                              <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
+                                Planned meal
                               </span>
                             ) : null}
                           </div>
@@ -743,16 +747,6 @@ function ShoppingSection({
                               ? ` · ${entry.item.actualStock}/${entry.item.desiredStock} in stock`
                               : ""}
                           </p>
-                          {entry.plannedRecipeName ? (
-                            <p
-                              className={cn(
-                                "mt-1 text-sm text-[color:var(--color-ink-soft)]",
-                                isChecked && "line-through decoration-2 opacity-70",
-                              )}
-                            >
-                              Linked meal: {entry.plannedRecipeName}
-                            </p>
-                          ) : null}
                           {expectedEntryPricePence != null ? (
                             <p
                               className={cn(
