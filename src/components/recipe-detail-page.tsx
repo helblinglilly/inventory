@@ -641,11 +641,27 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
 
               <div className="mt-4 space-y-3">
                 <input
-                value={ingredientSearch}
-                onChange={(event) => setIngredientSearch(event.target.value)}
-                placeholder="Search anything"
-                className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
-              />
+                  value={ingredientSearch}
+                  onChange={(event) => setIngredientSearch(event.target.value)}
+                  placeholder="Search anything"
+                  className="w-full rounded-2xl border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
+                />
+                <div className="space-y-3">
+                  {filteredItems.slice(0, 10).map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => void addIngredient(item.id)}
+                      className="w-full rounded-[1.5rem] border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-4 text-left transition hover:border-[color:var(--color-forest)] hover:bg-white"
+                    >
+                      <p className="text-sm font-semibold text-[color:var(--color-ink)]">{item.name}</p>
+                      <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
+                        {item.isStaple ? "Staple" : "Recipe item"}
+                        {item.trackPriceHistory ? " · price-tracked" : ""}
+                      </p>
+                    </button>
+                  ))}
+                </div>
                 {matchingExistingItem ? (
                   <p className="rounded-2xl bg-[color:var(--color-panel-muted)] px-4 py-3 text-sm text-[color:var(--color-ink-soft)]">
                     Exact match found: <span className="font-semibold text-[color:var(--color-ink)]">{matchingExistingItem.name}</span>. Pick it from the results below to link it.
@@ -686,32 +702,15 @@ export function RecipeDetailPage({ recipeId, userId }: RecipeDetailPageProps) {
                     </button>
                   </>
                 ) : null}
+                {filteredItems.length === 0 ? (
+                  <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
+                    {canCreateNewIngredient
+                      ? "No registered ingredient matches yet. You can create this one below."
+                      : "No more matching items to add."}
+                  </div>
+                ) : null}
               </div>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            {filteredItems.slice(0, 10).map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => void addIngredient(item.id)}
-                className="w-full rounded-[1.5rem] border border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-4 text-left transition hover:border-[color:var(--color-forest)] hover:bg-white"
-              >
-                <p className="text-sm font-semibold text-[color:var(--color-ink)]">{item.name}</p>
-                <p className="mt-1 text-sm text-[color:var(--color-ink-soft)]">
-                  {item.isStaple ? "Staple" : "Recipe item"}
-                  {item.trackPriceHistory ? " · price-tracked" : ""}
-                </p>
-              </button>
-            ))}
-            {filteredItems.length === 0 ? (
-              <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
-                {canCreateNewIngredient
-                  ? "No registered ingredient matches yet. You can create this one above."
-                  : "No more matching items to add."}
-              </div>
-            ) : null}
           </div>
         </aside>
       </section>
