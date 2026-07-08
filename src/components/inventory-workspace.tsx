@@ -29,6 +29,14 @@ import type { PlaceRecord, RoomRecord, ShoppingListEntryRecord } from "@/feature
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import { cn, formatCurrencyFromPence } from "@/lib/utils";
 
+type MealUsage = {
+  recipeId: string;
+  recipeName: string;
+  plannedFor: string;
+  quantity: number;
+  unitLabel: string | null;
+};
+
 export function InventoryWorkspace() {
   const {
     rooms,
@@ -37,6 +45,7 @@ export function InventoryWorkspace() {
     shoppingLists,
     shoppingListEntries,
     recipes,
+    recipeIngredients,
     mealPlans,
     isBootstrapping,
     syncNow,
@@ -56,6 +65,12 @@ export function InventoryWorkspace() {
   );
   const todayPlan = getDinnerPlanForDate(mealPlans, todayDateKey);
   const todayRecipe = recipes.find((recipe) => recipe.id === todayPlan?.recipeId) ?? null;
+  const plannedMealUsagesByItem = buildPlannedMealUsagesByItem({
+    mealPlans,
+    recipes,
+    recipeIngredients,
+    todayDateKey,
+  });
   const selectableShoppingRooms = rooms.filter((room) => room.name !== UNCATEGORIZED_ROOM_NAME);
   const effectiveShoppingRoomId =
     selectableShoppingRooms.some((room) => room.id === selectedShoppingRoomId)
@@ -94,15 +109,12 @@ export function InventoryWorkspace() {
       checkedAt: null,
       isDerived: true,
       placeLabel: getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId),
-      plannedRecipeName: null,
+      plannedUsages: plannedMealUsagesByItem.get(item.id) ?? [],
     }));
   const combinedEntries: ShoppingViewEntry[] = [
     ...activeEntries.map((entry) => {
       const item = entry.itemId
         ? (items.find((candidate) => candidate.id === entry.itemId) ?? null)
-        : null;
-      const recipe = entry.recipeId
-        ? (recipes.find((candidate) => candidate.id === entry.recipeId) ?? null)
         : null;
 
       return {
@@ -120,7 +132,7 @@ export function InventoryWorkspace() {
         placeLabel: item
           ? getShoppingRoomLabel(item, places, rooms, effectiveShoppingRoomId)
           : "Unassigned",
-        plannedRecipeName: recipe?.name ?? null,
+        plannedUsages: item ? (plannedMealUsagesByItem.get(item.id) ?? []) : [],
       };
     }),
     ...derivedLowStockEntries,
@@ -595,12 +607,13 @@ export function InventoryWorkspace() {
         ) : null}
 
         <div className="mt-5">
-          <ShoppingSection
-            groupedEntries={groupedEntries}
-            itemEntryCounts={itemEntryCounts}
-            onToggleEntryChecked={toggleEntryChecked}
-            onAdjustItemStock={adjustItemStock}
-          />
+      <ShoppingSection
+        groupedEntries={groupedEntries}
+        itemEntryCounts={itemEntryCounts}
+        todayDateKey={todayDateKey}
+        onToggleEntryChecked={toggleEntryChecked}
+        onAdjustItemStock={adjustItemStock}
+      />
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -622,6 +635,7 @@ export function InventoryWorkspace() {
 function ShoppingSection({
   groupedEntries,
   itemEntryCounts,
+  todayDateKey,
   onToggleEntryChecked,
   onAdjustItemStock,
 }: {
@@ -630,6 +644,7 @@ function ShoppingSection({
     entries: ShoppingViewEntry[];
   }>;
   itemEntryCounts: Map<string, number>;
+  todayDateKey: string;
   onToggleEntryChecked: (entry: ShoppingViewEntry, checked: boolean) => Promise<void>;
   onAdjustItemStock: (entry: ShoppingViewEntry, delta: number) => Promise<void>;
 }) {
@@ -721,18 +736,20 @@ function ShoppingSection({
                               <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
                                 Manual item
                               </span>
-                            ) : entry.sourceType === "low-stock" ? (
+                            ) : null}
+                            {entry.plannedUsages.length > 0
+                              ? entry.plannedUsages.map((usage) => (
+                                  <span
+                                    key={`${entry.id}:${usage.recipeId}:${usage.plannedFor}:${usage.quantity}:${usage.unitLabel ?? "x"}`}
+                                    className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]"
+                                  >
+                                    {getUsageDayLabel(usage.plannedFor, todayDateKey)} · {usage.recipeName}
+                                  </span>
+                                ))
+                              : null}
+                            {entry.sourceType === "low-stock" && entry.plannedUsages.length === 0 ? (
                               <span className="rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-[color:var(--color-ink-soft)]">
                                 Restock
-                              </span>
-                            ) : null}
-                            {entry.plannedRecipeName ? (
-                              <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
-                                For {entry.plannedRecipeName}
-                              </span>
-                            ) : entry.sourceType === "recipe" ? (
-                              <span className="rounded-full bg-[color:var(--color-forest)]/10 px-3 py-1 text-xs font-medium text-[color:var(--color-forest)]">
-                                Planned meal
                               </span>
                             ) : null}
                           </div>
@@ -806,7 +823,7 @@ type ShoppingViewEntry = {
   checkedAt: number | null;
   isDerived: boolean;
   placeLabel: string;
-  plannedRecipeName: string | null;
+  plannedUsages: MealUsage[];
 };
 
 function getItemEntryCounts(entries: ShoppingViewEntry[]) {
@@ -891,6 +908,56 @@ function getShoppingRoomLabel(
   };
 
   return getLocationLabel(scopedItem, places, rooms);
+}
+
+function buildPlannedMealUsagesByItem({
+  mealPlans,
+  recipes,
+  recipeIngredients,
+  todayDateKey,
+}: {
+  mealPlans: ReturnType<typeof useInventoryData>["mealPlans"];
+  recipes: ReturnType<typeof useInventoryData>["recipes"];
+  recipeIngredients: ReturnType<typeof useInventoryData>["recipeIngredients"];
+  todayDateKey: string;
+}) {
+  const usagesByItem = new Map<string, MealUsage[]>();
+  const upcomingPlans = mealPlans
+    .filter((plan) => plan.recipeId && plan.plannedFor >= todayDateKey)
+    .sort((left, right) => left.plannedFor.localeCompare(right.plannedFor));
+
+  for (const plan of upcomingPlans) {
+    const recipe = recipes.find((candidate) => candidate.id === plan.recipeId);
+    if (!recipe) {
+      continue;
+    }
+
+    const ingredients = recipeIngredients.filter((ingredient) => ingredient.recipeId === recipe.id);
+
+    for (const ingredient of ingredients) {
+      const usages = usagesByItem.get(ingredient.itemId) ?? [];
+      usages.push({
+        recipeId: recipe.id,
+        recipeName: recipe.name,
+        plannedFor: plan.plannedFor,
+        quantity: ingredient.quantity,
+        unitLabel: ingredient.unitLabel ?? null,
+      });
+      usagesByItem.set(ingredient.itemId, usages);
+    }
+  }
+
+  return usagesByItem;
+}
+
+function getUsageDayLabel(plannedFor: string, todayDateKey: string) {
+  if (plannedFor === todayDateKey) {
+    return "Today";
+  }
+
+  return new Date(`${plannedFor}T12:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+  });
 }
 
 function NavButton({
