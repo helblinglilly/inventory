@@ -760,40 +760,47 @@ function ShoppingSection({
                             )}
                           >
                             {entry.quantity} {entry.unitLabel ?? "x"}
-                            {entry.item
-                              ? ` · ${entry.item.actualStock}/${entry.item.desiredStock} in stock`
-                              : ""}
                           </p>
-                          {expectedEntryPricePence != null ? (
+                        </div>
+                        {entry.item ? (
+                          <div className="flex shrink-0 flex-col items-end gap-2 text-right">
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void onAdjustItemStock(entry, -1)}
+                                disabled={entry.item.actualStock <= 0}
+                                aria-label={`Remove one ${entry.label} from stock`}
+                                className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Minus className="size-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => void onAdjustItemStock(entry, 1)}
+                                aria-label={`Add one ${entry.label} to stock`}
+                                className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
+                              >
+                                <Plus className="size-4" />
+                              </button>
+                            </div>
                             <p
                               className={cn(
-                                "mt-1 text-sm font-medium text-[color:var(--color-ink)]",
+                                "text-sm text-[color:var(--color-ink-soft)]",
                                 isChecked && "line-through decoration-2 opacity-70",
                               )}
                             >
-                              Expected price {formatCurrencyFromPence(expectedEntryPricePence)}
+                              {entry.item.actualStock}/{entry.item.desiredStock}
                             </p>
-                          ) : null}
-                        </div>
-                        {entry.item ? (
-                          <div className="flex shrink-0 items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void onAdjustItemStock(entry, -1)}
-                              disabled={entry.item.actualStock <= 0}
-                              aria-label={`Remove one ${entry.label} from stock`}
-                              className="inline-flex size-9 items-center justify-center rounded-full border border-black/10 bg-white text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)] disabled:cursor-not-allowed disabled:opacity-40"
-                            >
-                              <Minus className="size-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => void onAdjustItemStock(entry, 1)}
-                              aria-label={`Add one ${entry.label} to stock`}
-                              className="inline-flex size-9 items-center justify-center rounded-full bg-[color:var(--color-clay)] text-white transition hover:bg-[#a63c22]"
-                            >
-                              <Plus className="size-4" />
-                            </button>
+                            {expectedEntryPricePence != null ? (
+                              <p
+                                className={cn(
+                                  "text-sm font-medium text-[color:var(--color-ink)]",
+                                  isChecked && "line-through decoration-2 opacity-70",
+                                )}
+                              >
+                                {formatCurrencyFromPence(expectedEntryPricePence)}
+                              </p>
+                            ) : null}
                           </div>
                         ) : null}
                       </div>
