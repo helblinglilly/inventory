@@ -14,8 +14,12 @@ import {
   UNCATEGORIZED_PLACE_NAME,
   UNCATEGORIZED_ROOM_NAME,
 } from "@/features/inventory/helpers";
+import type { ItemRecord, PlaceRecord, RoomRecord } from "@/features/inventory/types";
 import { useInventoryData } from "@/features/inventory/use-inventory-data";
 import { cn, formatCurrencyFromPence, formatRelativeStock } from "@/lib/utils";
+
+const SUPERMARKET_ROOM_NAME = "Supermarket";
+const SUPERMARKET_ONLY_GROUP_LABEL = "Supermarket only";
 
 export function ItemsPage() {
   const {
@@ -46,8 +50,10 @@ export function ItemsPage() {
   const categorizedItems = filteredItems.filter(
     (item) => !isUncategorizedItem(item, places, rooms),
   );
-  const lowStockItems = categorizedItems.filter((item) => item.actualStock < item.desiredStock);
-  const healthyItems = categorizedItems.filter((item) => item.actualStock >= item.desiredStock);
+  const lowStockItems = categorizedItems.filter((item) => !isHealthyItem(item));
+  const healthyItems = categorizedItems.filter((item) => isHealthyItem(item));
+  const lowStockGroups = groupItemsByRoom(lowStockItems, places, rooms);
+  const healthyGroups = groupItemsByRoom(healthyItems, places, rooms);
 
   if (isBootstrapping) {
     return <Loading label="Loading items..." />;
@@ -125,7 +131,7 @@ export function ItemsPage() {
         ) : null}
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+      <section className="grid gap-4 lg:grid-cols-2">
         <div className="space-y-3 rounded-[2rem] border border-black/5 bg-white/85 p-4 shadow-[0_24px_70px_-48px_rgba(22,38,32,0.7)] lg:col-span-2">
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -174,20 +180,17 @@ export function ItemsPage() {
             </div>
           </div>
 
-          {lowStockItems.length === 0 ? (
+          {lowStockGroups.length === 0 ? (
             <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
               No low-stock items in this view.
             </div>
           ) : (
-            lowStockItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                rooms={rooms}
-                places={places}
-                onAddToShoppingList={addItemToShoppingList}
-              />
-            ))
+            <RoomItemGroups
+              groups={lowStockGroups}
+              rooms={rooms}
+              places={places}
+              onAddToShoppingList={addItemToShoppingList}
+            />
           )}
         </div>
 
@@ -206,24 +209,59 @@ export function ItemsPage() {
             </div>
           </div>
 
-          {healthyItems.length === 0 ? (
+          {healthyGroups.length === 0 ? (
             <div className="rounded-[1.5rem] border border-dashed border-black/10 bg-[color:var(--color-panel-muted)] px-4 py-8 text-center text-sm text-[color:var(--color-ink-soft)]">
               No matching in-stock items.
             </div>
           ) : (
-            healthyItems.map((item) => (
-              <ItemCard
-                key={item.id}
-                item={item}
-                rooms={rooms}
-                places={places}
-                onAddToShoppingList={addItemToShoppingList}
-              />
-            ))
+            <RoomItemGroups
+              groups={healthyGroups}
+              rooms={rooms}
+              places={places}
+              onAddToShoppingList={addItemToShoppingList}
+            />
           )}
         </div>
       </section>
     </section>
+  );
+}
+
+function RoomItemGroups({
+  groups,
+  rooms,
+  places,
+  onAddToShoppingList,
+}: {
+  groups: { roomName: string; items: ItemRecord[] }[];
+  rooms: RoomRecord[];
+  places: PlaceRecord[];
+  onAddToShoppingList: (itemId: string) => Promise<void>;
+}) {
+  return (
+    <div className="space-y-4">
+      {groups.map((group) => (
+        <section key={group.roomName} className="space-y-3">
+          <div className="flex items-center justify-between gap-3 px-1">
+            <p className="text-xs uppercase tracking-[0.18em] text-[color:var(--color-ink-soft)]">
+              {group.roomName}
+            </p>
+            <p className="text-xs text-[color:var(--color-ink-soft)]">
+              {group.items.length} item{group.items.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          {group.items.map((item) => (
+            <ItemCard
+              key={item.id}
+              item={item}
+              rooms={rooms}
+              places={places}
+              onAddToShoppingList={onAddToShoppingList}
+            />
+          ))}
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -330,6 +368,60 @@ function isUncategorizedItem(
       place.name === UNCATEGORIZED_PLACE_NAME && room?.name === UNCATEGORIZED_ROOM_NAME
     );
   });
+}
+
+function isHealthyItem(item: ItemRecord) {
+  return item.actualStock > 0 && item.actualStock >= item.desiredStock;
+}
+
+function groupItemsByRoom(items: ItemRecord[], places: PlaceRecord[], rooms: RoomRecord[]) {
+  const groups = new Map<string, ItemRecord[]>();
+
+  for (const item of items) {
+    const roomName = getPrimaryRoomName(item, places, rooms);
+    const current = groups.get(roomName) ?? [];
+    current.push(item);
+    groups.set(roomName, current);
+  }
+
+  return [...groups.entries()]
+    .sort(([left], [right]) => {
+      if (left === SUPERMARKET_ONLY_GROUP_LABEL) {
+        return 1;
+      }
+
+      if (right === SUPERMARKET_ONLY_GROUP_LABEL) {
+        return -1;
+      }
+
+      return left.localeCompare(right);
+    })
+    .map(([roomName, groupedItems]) => ({
+      roomName,
+      items: [...groupedItems].sort((left, right) => left.name.localeCompare(right.name)),
+    }));
+}
+
+function getPrimaryRoomName(item: ItemRecord, places: PlaceRecord[], rooms: RoomRecord[]) {
+  const itemRooms = getItemPlaces(item, places)
+    .map((place) => rooms.find((room) => room.id === place.roomId) ?? null)
+    .filter((room): room is RoomRecord => Boolean(room));
+
+  const nonSupermarketRoom = itemRooms.find(
+    (room) =>
+      room.name !== SUPERMARKET_ROOM_NAME && room.name !== UNCATEGORIZED_ROOM_NAME,
+  );
+
+  if (nonSupermarketRoom) {
+    return nonSupermarketRoom.name;
+  }
+
+  const fallbackRoom = itemRooms.find((room) => room.name !== SUPERMARKET_ROOM_NAME);
+  if (fallbackRoom) {
+    return fallbackRoom.name;
+  }
+
+  return SUPERMARKET_ONLY_GROUP_LABEL;
 }
 
 function Loading({ label }: { label: string }) {
