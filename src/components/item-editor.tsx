@@ -156,18 +156,12 @@ function ItemEditorForm({
     }
   }
 
-  async function savePrimaryPlace(nextPrimaryPlaceId: string) {
-    const nextPlaceIds = buildLocationPlaceIds(nextPrimaryPlaceId, linkedPlaceIds);
-    setLinkedPlaceIds(nextPlaceIds);
-    await persistPlaceIds(nextPlaceIds);
-  }
-
   async function addLinkedPlace() {
-    if (!activePlaceId || linkedPlaceIds.includes(activePlaceId)) {
+    if (!activePlaceId) {
       return;
     }
 
-    const nextPlaceIds = [...linkedPlaceIds, activePlaceId];
+    const nextPlaceIds = buildLocationPlaceIds(activePlaceId, linkedPlaceIds);
     setLinkedPlaceIds(nextPlaceIds);
     await persistPlaceIds(nextPlaceIds, "Places saved");
   }
@@ -382,8 +376,7 @@ function ItemEditorForm({
                   setMessage("This room has no places yet");
                   return;
                 }
-
-                void savePrimaryPlace(nextPlaceId);
+                setMessage(null);
               }}
               disabled={isSaving}
               className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
@@ -404,12 +397,7 @@ function ItemEditorForm({
                   onChange={(event) => {
                     const nextPlaceId = event.target.value;
                     setSelectedPlaceId(nextPlaceId);
-
-                    if (!nextPlaceId) {
-                      return;
-                    }
-
-                    void savePrimaryPlace(nextPlaceId);
+                    setMessage(null);
                   }}
                   disabled={availablePlaces.length === 0 || isSaving}
                   className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
