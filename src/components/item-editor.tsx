@@ -123,7 +123,7 @@ function ItemEditorForm({
   function buildLocationPlaceIds(nextPrimaryPlaceId: string, placeIds: string[]) {
     return [
       nextPrimaryPlaceId,
-      ...placeIds.filter((placeId) => placeId !== nextPrimaryPlaceId && placeId !== placeIds[0]),
+      ...placeIds.filter((placeId) => placeId !== nextPrimaryPlaceId),
     ];
   }
 
