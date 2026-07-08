@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { startTransition, useState } from "react";
-import { CheckSquare, ChefHat, ListRestart, Loader2, Minus, PackagePlus, Plus } from "lucide-react";
+import { ChefHat, ListRestart, Loader2, Minus, PackagePlus, Plus } from "lucide-react";
 import {
   buildMutation,
   getActiveShoppingList,
@@ -237,50 +237,6 @@ export function InventoryWorkspace() {
       ),
     );
 
-    await syncNow();
-  }
-
-  async function clearFullyStockedItems() {
-    if (!activeShoppingList) {
-      return;
-    }
-
-    const entriesToClear = combinedEntries.filter(
-      (entry) =>
-        !entry.checkedAt &&
-        entry.item &&
-        entry.item.actualStock >= entry.item.desiredStock,
-    );
-
-    if (entriesToClear.length === 0) {
-      setMessage("Nothing to clear yet");
-      return;
-    }
-
-    for (const entry of entriesToClear) {
-      const persistedEntry = await ensurePersistedShoppingEntry(entry);
-      if (!persistedEntry) {
-        continue;
-      }
-
-      const updatedAt = getTimestamp();
-      const nextEntry = {
-        ...persistedEntry,
-        checkedAt: updatedAt,
-        updatedAt,
-      };
-
-      await applyShoppingListEntryLocally(nextEntry);
-      await enqueueMutation(
-        buildMutation("shopping-list-entry", "upsert", nextEntry, updatedAt),
-      );
-    }
-
-    setMessage(
-      entriesToClear.length === 1
-        ? "Cleared 1 fully stocked item"
-        : `Cleared ${entriesToClear.length} fully stocked items`,
-    );
     await syncNow();
   }
 
@@ -647,15 +603,7 @@ export function InventoryWorkspace() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => startTransition(() => void clearFullyStockedItems())}
-            className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-medium text-[color:var(--color-ink)] transition hover:border-[color:var(--color-forest)] hover:text-[color:var(--color-forest)]"
-          >
-            <CheckSquare className="size-4" />
-            Clear fully stocked items
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <button
             type="button"
             onClick={() => startTransition(() => void createNewList())}
@@ -664,6 +612,7 @@ export function InventoryWorkspace() {
             <ListRestart className="size-4" />
             Complete shopping trip
           </button>
+          <NavButton href="/app/shopping-prep" label="Shopping prep" />
         </div>
       </section>
     </div>
