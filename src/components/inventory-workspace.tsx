@@ -569,7 +569,7 @@ export function InventoryWorkspace() {
           </p>
         ) : null}
 
-        <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem_auto]">
+        <div className="mt-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_7rem]">
           <input
             value={quickItemName}
             onChange={(event) => setQuickItemName(event.target.value)}
@@ -583,14 +583,6 @@ export function InventoryWorkspace() {
             onChange={(event) => setQuickItemQuantity(event.target.value)}
             className="w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm outline-none focus:border-[color:var(--color-forest)]"
           />
-          <button
-            type="button"
-            onClick={() => startTransition(() => void quickAddShoppingItem())}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22]"
-          >
-            <Plus className="size-4" />
-            {exactQuickAddMatch ? "Add match" : "Create item"}
-          </button>
         </div>
         {normalizedQuickItemName ? (
           <div className="mt-3 space-y-2">
@@ -628,6 +620,14 @@ export function InventoryWorkspace() {
             )}
           </div>
         ) : null}
+        <button
+          type="button"
+          onClick={() => startTransition(() => void quickAddShoppingItem())}
+          className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--color-clay)] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#a63c22] md:w-auto"
+        >
+          <Plus className="size-4" />
+          {exactQuickAddMatch ? "Add match" : "Create item"}
+        </button>
 
         <div className="mt-5">
       <ShoppingSection
