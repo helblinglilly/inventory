@@ -734,9 +734,6 @@ function ShoppingSection({
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-full bg-[color:var(--color-panel-muted)] px-3 py-1 text-xs font-semibold text-[color:var(--color-ink)]">
-                    {isExpanded ? "Collapse" : "Expand"}
-                  </div>
                 </button>
 
                 {isExpanded ? (
