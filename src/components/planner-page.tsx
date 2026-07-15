@@ -62,6 +62,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
   }
 
   const monthGrid = getMonthGrid(monthAnchor);
+  const todayDateKey = toDateKey(new Date());
   const selectedPlan = getDinnerPlanForDate(mealPlans, selectedDateKey);
   const selectedRecipe = recipes.find((recipe) => recipe.id === selectedPlan?.recipeId) ?? null;
   const activeShoppingList = getActiveShoppingList(shoppingLists);
@@ -220,6 +221,7 @@ export function PlannerPage({ userId }: PlannerPageProps) {
               const hasMeal = Boolean(recipe || plan?.notes);
               const isCurrentMonth = date.getMonth() === monthAnchor.getMonth();
               const isSelected = dateKey === selectedDateKey;
+              const isToday = dateKey === todayDateKey;
 
               return (
                 <button
@@ -229,8 +231,16 @@ export function PlannerPage({ userId }: PlannerPageProps) {
                   className={cn(
                     "min-h-16 rounded-[1.1rem] border px-2 py-2 text-left transition sm:min-h-28 sm:rounded-[1.5rem] sm:p-3",
                     isSelected
-                      ? "border-[color:var(--color-forest)] bg-[color:var(--color-panel-muted)] ring-2 ring-[color:var(--color-clay)]/20 shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]"
-                      : "border-black/10 bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
+                      ? cn(
+                          "bg-[color:var(--color-panel-muted)] ring-2 ring-[color:var(--color-clay)]/20 shadow-[0_16px_40px_-32px_rgba(22,38,32,0.65)]",
+                          isToday
+                            ? "border-[color:var(--color-clay)]"
+                            : "border-[color:var(--color-forest)]",
+                        )
+                      : cn(
+                          "bg-white hover:border-[color:var(--color-forest)]/40 hover:bg-[color:var(--color-panel-muted)]/55",
+                          isToday ? "border-[color:var(--color-clay)]" : "border-black/10",
+                        ),
                     !isCurrentMonth && "opacity-45",
                   )}
                   aria-pressed={isSelected}
