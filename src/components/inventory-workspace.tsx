@@ -917,7 +917,6 @@ function getExpectedEntryPricePence(entry: ShoppingViewEntry) {
 
 function getExpectedGroupPricePence(entries: ShoppingViewEntry[]) {
   const pricedEntries = entries
-    .filter((entry) => !entry.checkedAt)
     .map(getExpectedEntryPricePence)
     .filter((value): value is number => value != null);
 
